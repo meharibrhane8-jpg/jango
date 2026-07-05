@@ -1,9 +1,11 @@
 {
-  "name": "ትግሪና ai Geez Keyboard",
-  "description": "ትግሪና ai (Geez) keyboard pro 2026",
+  "name": "Tigrinya AI Geez Keyboard",
+  "description": "Ethiopic virtual keyboard and AI assistant with a cosmic neural theme, supporting Tigrinya, Amharic, and English.",
   "requestFramePermissions": [
     "microphone",
     "camera"
   ],
-  "majorCapabilities": []
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

@@ -52,3 +52,23 @@ export const playBase64Audio = async (base64: string, sampleRate: number = 24000
     source.onended = () => resolve();
   });
 };
+
+export const playConfirmationTone = () => {
+  const ctx = getAudioContext();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  
+  // Nice modern "blip" tone
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
+  osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.12); // Fall to A4
+  
+  gain.gain.setValueAtTime(0.15, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+  
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  
+  osc.start();
+  osc.stop(ctx.currentTime + 0.12);
+};

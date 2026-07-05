@@ -13,12 +13,39 @@ export class AudioRecorder {
   }
 
   async start() {
-    this.stream = await navigator.mediaDevices.getUserMedia({ audio: { 
-        sampleRate: 16000,
-        channelCount: 1,
-        echoCancellation: true,
-        noiseSuppression: true
-    } });
+    // Check if any audio input devices exist first
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const hasMic = devices.some(device => device.kind === 'audioinput');
+      if (!hasMic) {
+        throw new Error("No microphone device found on this system.");
+      }
+    } catch (e) {
+      console.warn("Could not enumerate devices:", e);
+    }
+
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } 
+      });
+    } catch (e: any) {
+      if (e.name === 'NotFoundError' || e.name === 'DevicesNotFoundError') {
+        throw new Error("Requested device not found. Please connect a microphone.");
+      }
+      console.info("Standard audio constraints failed, trying basic audio:true", e);
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (e2: any) {
+        if (e2.name === 'NotAllowedError' || e2.name === 'PermissionDeniedError') {
+          throw new Error("Microphone permission denied. To use voice features, please open the app in a new browser tab or enable microphone access in your browser settings.");
+        }
+        throw e2;
+      }
+    }
     this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
       sampleRate: 16000,
     });
@@ -54,6 +81,12 @@ export class AudioRecorder {
     }
     if (this.audioContext) {
       this.audioContext.close();
+    }
+  }
+
+  setMuted(muted: boolean) {
+    if (this.stream) {
+      this.stream.getAudioTracks().forEach(track => track.enabled = !muted);
     }
   }
 

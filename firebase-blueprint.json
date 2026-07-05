@@ -1,0 +1,19 @@
+{
+  "collections": {
+    "reminders": {
+      "description": "User set reminders for tasks or events",
+      "fields": {
+        "userId": { "type": "string", "description": "ID of the user who created the reminder" },
+        "title": { "type": "string", "description": "The content of the reminder" },
+        "dueAt": { "type": "timestamp", "description": "When the reminder should trigger" },
+        "createdAt": { "type": "timestamp", "description": "When the reminder was created" },
+        "status": { "type": "string", "description": "Status: pending, sent, or cancelled" },
+        "pushSubscription": { "type": "object", "description": "The Web Push subscription object" }
+      },
+      "indexes": [
+        { "fields": ["userId", "dueAt"] },
+        { "fields": ["status", "dueAt"] }
+      ]
+    }
+  }
+}

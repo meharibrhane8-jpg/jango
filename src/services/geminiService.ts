@@ -1,135 +1,469 @@
-import { GoogleGenAI, Modality, LiveServerMessage } from "@google/genai";
+/**
+ * Secure Server-Proxy backed Gemini Integration Service
+ * Completely decoupled from browser-side GoogleGenAI to ensure security and prevent crashes.
+ */
 
-let genAI: GoogleGenAI | null = null;
-
-const getAI = () => {
-  if (!genAI) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error("GEMINI_API_KEY is not defined");
-    }
-    genAI = new GoogleGenAI({ apiKey });
-  }
-  return genAI;
-};
+export enum Modality {
+  AUDIO = "AUDIO",
+  TEXT = "TEXT"
+}
 
 export interface ChatMessage {
   role: 'user' | 'model';
   parts: string;
+  thought?: string;
   groundingSources?: { title: string; uri: string }[];
+  attachedFiles?: any[];
 }
 
-export const startAIChat = (history: ChatMessage[] = [], systemInstruction?: string) => {
-  const ai = getAI();
-  return ai.chats.create({
-    model: "models/gemini-3-flash-preview",
-    config: {
-      systemInstruction: systemInstruction || "Role: Act as a highly advanced Multilingual AI Assistant. Provide structured, insightful, and professional responses.\n\nLanguage Support:\n- Primary: English, Tigrinya, Amharic.\n- Secondary (Ethiopic): Ge'ez, Tigre, Oromo, Blin, Gurage, Sidamo.\n\nVisual Style Rules:\n- Formatting: Use Markdown for all text.\n- Use ### for all section headers.\n- Use **Bold** for key terms.\n- Use * for bulleted lists.\n\nStructure:\n- Begin with a one-sentence Summary.\n- Group related information into distinct sections.\n- Use double line breaks between sections for White Space.\n\nConciseness:\n- Be direct. Do not use conversational filler. Deliver the information organized by headers.\n\nSTRICT Language Matching Rules:\n1. DETECT the exact language or dialect the user is using.\n2. RESPOND 100% in that SAME language/dialect.\n3. FOR ETHIOPIC: Use appropriate Ge'ez script variants for the specific language.\n4. NEVER mix languages unless explicitly asked to translate.\n\nSource Links:\n- Format links as [Source Name](URL).",
-      tools: [{ googleSearch: {} }],
-      toolConfig: {
-        includeServerSideToolInvocations: true
-      },
-      thinkingConfig: {
-        includeThoughts: true
-      }
-    }
-  });
-};
-
-export const sendMessageToAI = async (chat: any, message: string) => {
-  const result = await chat.sendMessage({ message });
-  return result.text;
-};
-
-export const sendMessageStreamToAI = async (chat: any, message: string) => {
-  return await chat.sendMessageStream({ message });
-};
-
-export const generateTTS = async (text: string, voiceName: string = 'Kore'): Promise<string | null> => {
-  const ai = getAI();
-  const response = await ai.models.generateContent({
-    model: "models/gemini-3.1-flash-tts-preview",
-    contents: [{ parts: [{ text }] }],
-    config: {
-      responseModalities: [Modality.AUDIO],
-      speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName },
-          },
-      },
-    },
-  });
-
-  const parts = response.candidates?.[0]?.content?.parts || [];
-  for (const part of parts) {
-    if (part.inlineData?.data) {
-      return part.inlineData.data;
-    }
-  }
-  return null;
-};
-
-/**
- * GEMINI Multimodal Live API Integration
- */
 interface LiveCallbacks {
   onopen: () => void;
   onclose: () => void;
   onerror: (error: any) => void;
-  onmessage: (message: LiveServerMessage) => void;
+  onmessage: (message: any) => void;
 }
 
-export const connectToLiveAPI = (callbacks: LiveCallbacks, systemInstruction?: string) => {
-  const ai = getAI();
-  
-  return ai.live.connect({
-    model: "models/gemini-3.1-flash-live-preview",
-    callbacks,
-    config: {
-      responseModalities: [Modality.AUDIO],
-      speechConfig: {
-        voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } },
-      },
-      systemInstruction: systemInstruction || `You are an elite real-time AI companion specializing in Ethiopic languages and English.
-        - Expertise: English, Tigrinya, Amharic, Ge'ez, Tigre, Oromo, Blin, Gurage, Sidamo.
-        - Tone: Sophisticated, natural, and helpful. 
-        - Rule 1: Match the user's language and regional nuance perfectly.
-        - Rule 2: If the user speaks an Ethiopic language, prioritize cultural accuracy.
-        - Rule 3: Maintain a smooth, conversational flow suitable for voice interaction.
-        - Rule 4: If you're unsure of a regional variant, ask clarifying questions gently in the detected language.`,
-      // Enable real-time transcription
-      inputAudioTranscription: {},
-      outputAudioTranscription: {},
-    },
-  });
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const triggerQuotaEvent = (attempt: number, delayMs: number, error: any) => {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("gemini-api-quota", {
+      detail: { attempt, delayMs, error: error?.message || String(error) }
+    }));
+  }
 };
 
-export const generateSuggestions = async (history: ChatMessage[], language: string): Promise<string[]> => {
-  const ai = getAI();
-  
-  const historyText = history.slice(-5).map(m => `${m.role}: ${m.parts}`).join('\n');
-  
-  const prompt = `Based on the following chat history, suggest 3 short, helpful, and natural follow-up questions or prompts for the user.
-The suggestions must be in ${language === 'auto' ? 'the detected language of the conversation' : language}.
-Keep each suggestion under 10 words.
-Format your response as a simple JSON array of strings, like this: ["Suggestion 1", "Suggestion 2", "Suggestion 3"]
+const triggerQuotaSuccessEvent = () => {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("gemini-api-quota-success"));
+  }
+};
 
-Chat History:
+/**
+ * Proxy call to standard Gemini Generate Content API
+ */
+export const callGeminiAPI = async (model: string, contents: any, config?: any) => {
+  const fetchFn = async () => {
+    const response = await fetch("/api/gemini/generateContent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model, contents, config }),
+    });
+
+    if (!response.ok) {
+      let errMsg = "Failed to communicate with Gemini server.";
+      try {
+        const text = await response.text();
+        try {
+          const errData = JSON.parse(text);
+          errMsg = errData.error || errMsg;
+        } catch {
+          errMsg = text || `HTTP error! status: ${response.status}`;
+        }
+      } catch (e) {
+        errMsg = `HTTP error! status: ${response.status}`;
+      }
+      const err: any = new Error(errMsg);
+      err.status = response.status;
+      throw err;
+    }
+
+    try {
+      return await response.json();
+    } catch (err) {
+      throw new Error("Invalid response format received from server.");
+    }
+  };
+
+  let attempt = 1;
+  let currentDelay = 1000;
+  const maxAttempts = 4;
+  const backoffFactor = 2;
+
+  while (true) {
+    try {
+      const result = await fetchFn();
+      if (attempt > 1) {
+        triggerQuotaSuccessEvent();
+      }
+      return result;
+    } catch (error: any) {
+      const errMsg = error.message || String(error);
+      const isQuotaOrTemporary =
+        error.status === 429 ||
+        error.status === 503 ||
+        errMsg.toLowerCase().includes("quota") ||
+        errMsg.toLowerCase().includes("limit") ||
+        errMsg.toLowerCase().includes("busy") ||
+        errMsg.toLowerCase().includes("overloaded") ||
+        errMsg.toLowerCase().includes("rate limit") ||
+        errMsg.toLowerCase().includes("rate_limit") ||
+        errMsg.toLowerCase().includes("exhausted") ||
+        errMsg.toLowerCase().includes("temporary");
+
+      if (!isQuotaOrTemporary || attempt >= maxAttempts) {
+        throw error;
+      }
+
+      triggerQuotaEvent(attempt, currentDelay, error);
+      await delay(currentDelay);
+      attempt++;
+      currentDelay *= backoffFactor;
+    }
+  }
+};
+
+/**
+ * Proxy call to Gemini Image Generation API (Imagen)
+ */
+export const callGeminiImageAPI = async (model: string, prompt: string, config?: any) => {
+  const response = await fetch("/api/gemini/generateImages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model, prompt, config }),
+  });
+
+  if (!response.ok) {
+    const errData = await response.json();
+    throw new Error(errData.error || "Failed to generate image.");
+  }
+
+  return await response.json();
+};
+
+/**
+ * Mock chat container for backwards compatibility with the UI.
+ * Holds temporary system instruction state and history.
+ */
+export const startAIChat = (history: ChatMessage[] = [], systemInstruction?: string) => {
+  return {
+    history,
+    systemInstruction,
+    model: "gemini-flash-latest"
+  };
+};
+
+/**
+ * Sends a message and receives the text reply
+ */
+export const sendMessageToAI = async (chat: any, message: any) => {
+  const result = await callGeminiAPI(chat.model, message, {
+    systemInstruction: chat.systemInstruction
+  });
+  return result.text;
+};
+
+/**
+ * Sends a chat message and returns an Asynchronous Generator that streams
+ * GenerateContentResponses using Server-Sent Events (SSE).
+ */
+export const sendMessageStreamToAI = async function*(chatOrHistory: any, message: any, systemInstructionParam?: string) {
+  let history: ChatMessage[] = [];
+  let systemInstruction = systemInstructionParam;
+  let aiModelMode = "general";
+
+  if (Array.isArray(chatOrHistory)) {
+    history = chatOrHistory;
+  } else if (chatOrHistory && typeof chatOrHistory === "object") {
+    history = chatOrHistory.history || [];
+    systemInstruction = systemInstruction || chatOrHistory.systemInstruction;
+    aiModelMode = chatOrHistory.aiModelMode || "general";
+  }
+
+  const connectAndStream = async () => {
+    const response = await fetch("/api/gemini/chatStream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ history, message, systemInstruction, aiModelMode }),
+    });
+
+    if (!response.ok) {
+      let errMsg = "Failed to connect to chat stream";
+      try {
+        const text = await response.text();
+        try {
+          const errData = JSON.parse(text);
+          errMsg = errData.error || errMsg;
+        } catch {
+          errMsg = text || errMsg;
+        }
+      } catch {}
+      const err: any = new Error(errMsg);
+      err.status = response.status;
+      throw err;
+    }
+
+    return response;
+  };
+
+  let response: Response;
+  let attempt = 1;
+  let currentDelay = 1000;
+  const maxAttempts = 4;
+  const backoffFactor = 2;
+
+  while (true) {
+    try {
+      response = await connectAndStream();
+      if (attempt > 1) {
+        triggerQuotaSuccessEvent();
+      }
+      break;
+    } catch (error: any) {
+      const errMsg = error.message || String(error);
+      const isQuotaOrTemporary =
+        error.status === 429 ||
+        error.status === 503 ||
+        errMsg.toLowerCase().includes("quota") ||
+        errMsg.toLowerCase().includes("limit") ||
+        errMsg.toLowerCase().includes("busy") ||
+        errMsg.toLowerCase().includes("overloaded") ||
+        errMsg.toLowerCase().includes("rate limit") ||
+        errMsg.toLowerCase().includes("rate_limit") ||
+        errMsg.toLowerCase().includes("exhausted") ||
+        errMsg.toLowerCase().includes("temporary");
+
+      if (!isQuotaOrTemporary || attempt >= maxAttempts) {
+        throw error;
+      }
+
+      triggerQuotaEvent(attempt, currentDelay, error);
+      await delay(currentDelay);
+      attempt++;
+      currentDelay *= backoffFactor;
+    }
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) return;
+
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      const cleanLine = line.trim();
+      if (!cleanLine.startsWith("data: ")) continue;
+
+      let data: any;
+      try {
+        const jsonStr = cleanLine.substring(6);
+        data = JSON.parse(jsonStr);
+      } catch (e) {
+        console.warn("Error parsing stream block:", e);
+        continue;
+      }
+
+      if (data && data.error) {
+        const errorMsg = typeof data.error === "object"
+          ? (data.error.message || JSON.stringify(data.error))
+          : String(data.error);
+        throw new Error(errorMsg);
+      }
+      yield data;
+    }
+  }
+};
+
+/**
+ * Text-to-Speech Generation Proxy
+ */
+export const generateTTS = async (text: string, voiceName: string = 'Kore'): Promise<string | null> => {
+  try {
+    const response = await fetch("/api/gemini/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, voiceName }),
+    });
+
+    if (response.status === 429) {
+      throw new Error("QUOTA_EXCEEDED");
+    }
+
+    if (!response.ok) {
+      throw new Error("TTS proxy request failed");
+    }
+
+    const data = await response.json();
+    return data.audio;
+  } catch (err: any) {
+    console.error("Client TTS failed:", err);
+    if (err.message === "QUOTA_EXCEEDED") {
+      throw err; // Propagate specific error
+    }
+    return null;
+  }
+};
+
+/**
+ * Highly Advanced Gemini Live WebSocket Tunnel client
+ */
+export const connectToLiveAPI = (callbacks: LiveCallbacks, systemInstruction?: string, voiceName: string = "Zephyr") => {
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const wsUrl = `${protocol}//${window.location.host}/api/live-talk`;
+  const socket = new WebSocket(wsUrl);
+
+  socket.onopen = () => {
+    if (socket.readyState === WebSocket.OPEN) {
+      // Send setup parameters immediately to server-side connection
+      socket.send(JSON.stringify({
+        setup: {
+          systemInstruction,
+          voiceName
+        }
+      }));
+    }
+    callbacks.onopen();
+  };
+
+  socket.onclose = () => {
+    callbacks.onclose();
+  };
+
+  socket.onerror = (err) => {
+    callbacks.onerror(err);
+  };
+
+  socket.onmessage = (event) => {
+    try {
+      const message = JSON.parse(event.data);
+      callbacks.onmessage(message);
+    } catch (e) {
+      console.error("WS client onmessage error processing JSON:", e);
+    }
+  };
+
+  return {
+    sendRealtimeInput: (input: any) => {
+      if (socket.readyState === WebSocket.OPEN) {
+        if (input.audio?.data) {
+          socket.send(JSON.stringify({ audio: input.audio.data }));
+        }
+      }
+    },
+    sendText: (text: string) => {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ text }));
+      }
+    },
+    sendImage: (base64: string, mimeType: string = "image/jpeg") => {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ image: { base64, mimeType } }));
+      }
+    },
+    sendRaw: (data: any) => {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify(data));
+      }
+    },
+    close: () => {
+      if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+        socket.close();
+      }
+    }
+  };
+};
+
+/**
+ * Contextual suggestion predictions
+ */
+export const generateSuggestions = async (history: ChatMessage[], language: string, currentInput: string = "", tone: string = "Friendly"): Promise<string[]> => {
+  const historyText = history.slice(-10).map(m => `${m.role}: ${m.parts}`).join('\n');
+  
+  const prompt = `You are an expert conversational AI assistant. Analyze the user's current input and the provided recent chat history context to generate 3 highly contextually relevant, natural, and helpful suggestions.
+
+- If the current input is essentially complete, suggest meaningful follow-up questions or common next actions.
+- If the current input is partial, suggest natural completions to finish the sentence or phrase in a contextually appropriate way.
+
+Guidelines:
+- Tone: "${tone}"
+- Target Language: "${language === 'auto' ? 'detected' : language}"
+- Current Input: "${currentInput}"
+- Use the recent conversation history to provide suggestions that flow naturally from the existing context.
+
+Constraints:
+- Suggestions must be natural, concise, and natively correct in the target language.
+- Keep each suggestion under 5 words.
+- Response Format: A simple JSON array of strings, like this: ["Suggestion 1", "Suggestion 2", "Suggestion 3"]
+
+Chat History (Recent Context):
 ${historyText}`;
 
   try {
-    const result = await ai.models.generateContent({
-      model: "models/gemini-3-flash-preview",
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: {
-        responseMimeType: "application/json"
-      }
+    const result = await callGeminiAPI("gemini-3.5-flash", [{ role: 'user', parts: [{ text: prompt }] }], {
+      responseMimeType: "application/json"
     });
 
-    const text = result.text || "[]";
+    let text = result.text || "[]";
+    text = text.replace(/```json\s*|```/g, "").trim();
+    const startIndex = text.indexOf('[');
+    const endIndex = text.lastIndexOf(']');
+    if (startIndex !== -1 && endIndex !== -1) {
+        text = text.substring(startIndex, endIndex + 1);
+    }
+    
     return JSON.parse(text);
-  } catch (err) {
+  } catch (err: any) {
     console.error("Failed to generate suggestions:", err);
+    if (err.message?.includes("429") || err.message?.toLowerCase().includes("quota")) {
+      throw new Error("QUOTA_EXCEEDED");
+    }
     return [];
   }
+};
+
+/**
+ * Text refinement helper
+ */
+export const refineText = async (text: string, instruction: string): Promise<string> => {
+  try {
+    const result = await callGeminiAPI("gemini-3.5-flash", [{ role: 'user', parts: [{ text: `${instruction}\n\nText: "${text}"` }] }]);
+    return result.text || text;
+  } catch (err) {
+    console.error("Text refinement failed:", err);
+    throw err;
+  }
+};
+
+/**
+ * Text translation helper
+ */
+export const translateText = async (text: string, targetLang: string): Promise<string> => {
+  try {
+    const result = await callGeminiAPI("gemini-3.5-flash", [{ role: 'user', parts: [{ text: `Translate the following text to ${targetLang}. Return the translation only.\n\nText: "${text}"` }] }]);
+    return result.text || text;
+  } catch (err) {
+    console.error("Translation failed:", err);
+    throw err;
+  }
+};
+
+export const geminiTranscribe = async (base64Audio: string, mimeType: string, lang: string = 'ti'): Promise<string> => {
+  const prompt = `Transcribe the following audio accurately. The language is ${lang === 'en' ? 'English' : (lang === 'am' ? 'Amharic' : 'Tigrinya')}. Only return the transcribed text, nothing else.`;
+  
+  // Normalize unsupported webm audio MIME type to ogg, and mp4 to m4a for full compatibility with Gemini API
+  let normalizedMimeType = mimeType;
+  if (mimeType && mimeType.startsWith("audio/")) {
+    if (mimeType.includes("webm")) {
+      normalizedMimeType = "audio/ogg";
+    } else if (mimeType.includes("mp4")) {
+      normalizedMimeType = "audio/m4a";
+    }
+  }
+
+  const result = await callGeminiAPI("gemini-2.5-flash", [
+    { role: 'user', parts: [
+      { text: prompt },
+      { inlineData: { mimeType: normalizedMimeType, data: base64Audio } }
+    ] }
+  ]);
+  
+  return result.text?.trim() || "";
 };
