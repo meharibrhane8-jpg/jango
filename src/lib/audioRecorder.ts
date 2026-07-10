@@ -63,6 +63,7 @@ export class AudioRecorder {
     
     const bufferSize = 4096;
     const scriptProcessor = this.audioContext.createScriptProcessor(bufferSize, 1, 1);
+    this.processor = scriptProcessor as any;
     
     scriptProcessor.onaudioprocess = (e) => {
       const inputData = e.inputBuffer.getChannelData(0);
@@ -78,9 +79,23 @@ export class AudioRecorder {
   stop() {
     if (this.stream) {
       this.stream.getTracks().forEach(track => track.stop());
+      this.stream = null;
+    }
+    if (this.processor) {
+      try {
+        this.processor.disconnect();
+      } catch (e) {}
+      this.processor = null;
+    }
+    if (this.source) {
+      try {
+        this.source.disconnect();
+      } catch (e) {}
+      this.source = null;
     }
     if (this.audioContext) {
       this.audioContext.close();
+      this.audioContext = null;
     }
   }
 

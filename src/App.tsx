@@ -7,7 +7,7 @@ import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } fr
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
-import { MessageSquare, MessageSquarePlus, Send, Bot, User, Delete, ChevronUp, ChevronDown, ChevronRight, Space, CornerDownLeft, Globe, Copy, ClipboardPaste, Trash2, Check, Settings2, RotateCcw, X, Save, Languages, Mic, MicOff, Palette, Smile, Rows, Wand2, Sparkles, Loader2, ArrowLeftRight, Type, ClipboardList, Pin, PinOff, Search, Bold, Italic, Underline, Zap, Plus, Trash, CheckCircle2, Maximize2, Minimize2, CornerDownRight, BrainCircuit, History, Pencil, Volume2, Download, Keyboard, Highlighter, Image, Pause, Play, CheckCircle, Scissors, Feather, ShieldCheck, HelpCircle, Clock, Users, AlertTriangle, LayoutGrid } from 'lucide-react';
+import { MessageSquare, MessageSquarePlus, Send, Bot, User, Delete, ChevronUp, ChevronDown, ChevronRight, Space, CornerDownLeft, Globe, Copy, ClipboardPaste, Trash2, Check, Settings2, RotateCcw, X, Save, Languages, Mic, MicOff, Palette, Smile, Rows, Wand2, Sparkles, Loader2, ArrowLeftRight, Type, ClipboardList, Pin, PinOff, Search, Bold, Italic, Underline, Zap, Plus, Trash, CheckCircle2, Maximize2, Minimize2, CornerDownRight, BrainCircuit, History, Pencil, Volume2, Download, Keyboard, Highlighter, Image, Pause, Play, CheckCircle, Scissors, Feather, ShieldCheck, HelpCircle, Clock, Users, AlertTriangle, LayoutGrid, PenTool, AudioLines } from 'lucide-react';
 import { GEEZ_MAP, VOWEL_MAP, PHONETIC_MAP } from './geezUtils';
 import { getSuggestions, TIGRINYA_DICTIONARY, AUTOCORRECT_MAP } from './lib/autocorrect';
 import { startAIChat, sendMessageToAI, sendMessageStreamToAI, generateTTS, generateSuggestions, ChatMessage, connectToLiveAPI, refineText, translateText, callGeminiAPI, callGeminiImageAPI, geminiTranscribe } from './services/geminiService';
@@ -15,20 +15,29 @@ import { getAudioContext, playBase64Audio, playConfirmationTone } from './servic
 import { downloadWav } from './lib/wavUtils';
 import { AudioRecorder } from './lib/audioRecorder';
 import { AudioStreamer } from './lib/audioStreamer';
-import { Headphones, Radio, Mic2, Eye, EyeOff, Camera, Video, MessageCircle, File as FileIcon, Calendar as CalendarIcon, CheckSquare, FileText } from 'lucide-react';
+import { Headphones, Radio, Mic2, Eye, EyeOff, Camera, Video, MessageCircle, File as FileIcon, Calendar as CalendarIcon, CheckSquare, FileText, Folder, FolderOpen, Table as TableIcon } from 'lucide-react';
 import { SettingsDrawer } from './components/SettingsDrawer';
 import { FileAttachmentModule } from './components/FileAttachmentModule';
 import { MemoryBankDrawer } from './components/MemoryBankDrawer';
 import { AiModesManager, AI_MODES_LIST } from './components/AiModesManager';
-import { ReminderModule } from './components/ReminderModule';
 import { CalendarModule } from './components/CalendarModule';
 import { TasksModule } from './components/TasksModule';
 import { KeepModule } from './components/KeepModule';
-import { OnboardingGuide } from './components/OnboardingGuide';
+import { FacelessYTCreator } from './components/FacelessYTCreator';
+import { YTProjectPanel } from './components/YTProjectPanel';
 
+import { DailyTip } from './components/DailyTip';
+import { OnboardingGuide } from './components/OnboardingGuide';
+import { TtsStudioModal } from './components/TtsStudioModal';
+import { SpeechBooth } from './components/SpeechBooth';
+import { DataTableModule } from './components/DataTableModule';
+
+import { useLocalTime } from './lib/useLocalTime';
 import { AttachedFile } from './types';
 import { MessageLinksAndSources } from './components/MessageLinksAndSources';
 import ChatMessageComponent from './components/ChatMessage';
+import { ThinkingBox } from './components/ThinkingBox';
+import { SearchingBadge } from './components/SearchingBadge';
 import { auth, googleSignIn, logout } from './services/firebaseAuthService';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { loadUserMemories, saveUserMemories, testConnection } from './services/firebaseDbService';
@@ -615,12 +624,14 @@ const getModeSystemInstruction = (mode: string): string => {
     wellness: "AI MODE - WELLNESS COACH: You are a gentle, empathetic, and calming wellness coach. Focus on mindfulness, stress relief, healthy habits, and emotional balance.",
     researcher: "AI MODE - RESEARCHER: You are a curious, objective, and thorough researcher. Synthesize complex information, provide detailed insights, and help the user investigate topics deeply.",
     langbuddy: "AI MODE - LANGUAGE BUDDY: You are a friendly, informal, and encouraging conversational partner. Help the user practice their target language in a casual, supportive, and engaging way.",
+    youtube_wizard: "AI MODE - YOUTUBE WIZARD: You are the 'AI Video Director' for a professional faceless YouTube production suite. Your role is strictly to guide the user in creating scripts, storyboards, and detailed visual/audio prompts that the user will then generate on external platforms (like Midjourney, Runway, etc.). You DO NOT generate the media yourself. You act as a normal assistant until the user clicks the YouTube Project panel icon.\n\nFlow:\n- Once triggered, initiate the step-by-step 11-stage interactive blueprinting process.\n- At every step, proactively suggest options, allow natural discussion, and provide a clickable option: '[OPTION: Let AI Take Over (Auto Mode) | Let AI Take Over (Auto Mode)]'.\n- If Auto Mode is selected, proceed to Step 10 immediately based on current context.\n- The user is the human creator who copies your prompts and does the final work.\n\nTHE 11 STEPS:\n- Step 1: Video Length (1-10 mins).\n- Step 2: Audience & Goal.\n- Step 3: Language.\n- Step 4: Niche Selection.\n- Step 5: Viral Concept.\n- Step 6: Voiceover Tone.\n- Step 7: Video Structure.\n- Step 8: Visual Style Suggestions.\n- Step 9: Final Review.\n- Step 10: Script Delivery. Deliver a fully finished blueprint using this EXACT format for metadata extraction:\n  [PROJECT_TITLE]: title\n  [PROJECT_NICHE]: niche\n  [PROJECT_TONE]: tone\n  [PROJECT_STYLE]: visual style\n  [PROJECT_OUTLINE]: outline\n  [PROJECT_SCRIPT]: the full script\n  \n  Append '[SAVE_PROJECT_CARD]' at the very end.\n- Step 11: Save and Complete.",
     default: "AI MODE - DEFAULT: You are a helpful, general-purpose AI assistant. Provide balanced, neutral, and informative responses without specialized personality constraints."
   };
   return instructions[mode] || "";
 };
 
 export default function App() {
+  const localTime = useLocalTime();
   const [text, setText] = useState('');
   const [isShift, setIsShift] = useState(false);
   const [activeLanguage, setActiveLanguage] = useState<string>('ti');
@@ -740,6 +751,14 @@ export default function App() {
     if (customLogo) localStorage.setItem('app_custom_logo', customLogo);
   }, [customLogo]);
 
+  // Faceless YT Creator wizard & project panel state
+  const [isYTCreatorMode, setIsYTCreatorMode] = useState(false);
+  const [ytActiveScriptData, setYtActiveScriptData] = useState<any>(null);
+  const [showYTProjectPanel, setShowYTProjectPanel] = useState(false);
+  const [ytInitialContext, setYtInitialContext] = useState('');
+  const [chatProjectNames, setChatProjectNames] = useState<Record<number, string>>({});
+  const [chatSavedProjects, setChatSavedProjects] = useState<Record<number, boolean>>({});
+
   // Target-aware setters and getters
   const isMainTarget = keyboardTarget === 'main';
   const getTargetText = () => isMainTarget ? text : chatInput;
@@ -776,6 +795,16 @@ export default function App() {
       }
       setChatSessions(prev => prev.map(s => s.id === curId ? {...s, messages: updater(s.messages)} : s));
   };
+
+  // Sync YouTube script wizard context with latest chat messages in real-time
+  useEffect(() => {
+    if (isYTCreatorMode && chatMessages.length > 0) {
+      const lastMsg = chatMessages[chatMessages.length - 1];
+      if (lastMsg && lastMsg.parts && lastMsg.role === 'model') {
+        setYtInitialContext(lastMsg.parts);
+      }
+    }
+  }, [chatMessages, isYTCreatorMode]);
 
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingSessionTitle, setEditingSessionTitle] = useState('');
@@ -879,6 +908,9 @@ export default function App() {
   }, [chatSessions, pastLiveSessions, historyFilter, historySearch, historyDateRange]);
   
   const [interimTranscript, setInterimTranscript] = useState('');
+  const [isThinking, setIsThinking] = useState(false);
+  const [thinkingStartTime, setThinkingStartTime] = useState<number | null>(null);
+  const [searchKeyword, setSearchKeyword] = useState('');
   const [isAssistantTyping, setIsAssistantTyping] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [streamingResponse, setStreamingResponse] = useState('');
@@ -983,6 +1015,7 @@ export default function App() {
   const [isLiveMode, setIsLiveMode] = useState(false);
   const [isSessionTimedOut, setIsSessionTimedOut] = useState(false);
   const [sessionTimeoutReason, setSessionTimeoutReason] = useState('');
+  const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState('');
   const [liveResponseTranscript, setLiveResponseTranscript] = useState('');
   const liveTranscriptRef = useRef('');
@@ -1003,6 +1036,7 @@ export default function App() {
   const liveSubtitleEndRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [liveTextPrompt, setLiveTextPrompt] = useState('');
   const [showLiveKeyboardInput, setShowLiveKeyboardInput] = useState(false);
@@ -1035,12 +1069,13 @@ export default function App() {
               ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
               const base64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
               liveSessionRef.current.sendImage(base64);
+              console.log("Real-time vision stream frame synchronized to Gemini Live API");
             }
           } catch (err) {
             console.error("Auto-vision frame capture failed:", err);
           }
         }
-      }, 5000); // Send frame every 5 seconds
+      }, 1500); // Send frame every 1.5 seconds (responsive, under the 1 FPS limit)
     }
     return () => {
       if (interval) clearInterval(interval);
@@ -1167,7 +1202,9 @@ export default function App() {
     layoutEditor: false,
     settings: false,
     chatOptions: false,
+    dataTable: false,
   });
+
   const [isSettingsDrawerOpen, setIsSettingsDrawerOpen] = useState(false);
   const [isToolsDropdownOpen, setIsToolsDropdownOpen] = useState(false);
   const [selectedTone, setSelectedTone] = useState<string | null>(null);
@@ -1254,17 +1291,17 @@ export default function App() {
     }
   });
   const [isMemoryDrawerOpen, setIsMemoryDrawerOpen] = useState(false);
-  const [isReminderOpen, setIsReminderOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isTasksOpen, setIsTasksOpen] = useState(false);
   const [isKeepOpen, setIsKeepOpen] = useState(false);
 
+
   // AI Personas and Modes States
   const [activeAiMode, setActiveAiMode] = useState<string>(() => {
     try {
-      return localStorage.getItem('active_ai_mode') || 'teacher';
+      return localStorage.getItem('active_ai_mode') || 'default';
     } catch {
-      return 'teacher';
+      return 'default';
     }
   });
   const [activeVoiceGender, setActiveVoiceGender] = useState<'female' | 'male'>(() => {
@@ -1279,6 +1316,22 @@ export default function App() {
   const [previewingGender, setPreviewingGender] = useState<'female' | 'male' | null>(null);
 
   const [activeModel, setActiveModel] = useState<string>('Gemini Flash');
+  const [selectedSpeaker, setSelectedSpeaker] = useState<string>(() => {
+    try {
+      return localStorage.getItem('selected_speaker') || 'Kore';
+    } catch {
+      return 'Kore';
+    }
+  });
+  const [selectedSpeechModel, setSelectedSpeechModel] = useState<string>(() => {
+    try {
+      return localStorage.getItem('selected_speech_model') || 'gemini-3.1-flash-tts-preview';
+    } catch {
+      return 'gemini-3.1-flash-tts-preview';
+    }
+  });
+  const [isTtsStudioOpen, setIsTtsStudioOpen] = useState(false);
+  const [showSpeechBooth, setShowSpeechBooth] = useState(false);
   const [speed, setSpeed] = useState<number>(1.0);
   const [selectedMic, setSelectedMic] = useState<string>('');
   const [availableMicrophones, setAvailableMicrophones] = useState<MediaDeviceInfo[]>([]);
@@ -1331,14 +1384,14 @@ export default function App() {
     showToast(`🗣️ Voice Gender: ${gender === 'female' ? 'Female' : 'Male'}`);
   };
 
-  const handlePreviewVoice = async (modeId: string, gender: 'female' | 'male', previewText: string) => {
+  const handlePreviewVoice = async (modeId: string, gender: 'female' | 'male', previewText: string, specificVoiceName?: string) => {
     if (isPreviewingVoice) return;
     setIsPreviewingVoice(true);
     setPreviewingModeId(modeId);
     setPreviewingGender(gender);
     try {
-      const voiceName = getVoiceForModeAndGender(modeId, gender);
-      const audioBase64 = await generateTTS(previewText, voiceName);
+      const voiceName = specificVoiceName || selectedSpeaker || getVoiceForModeAndGender(modeId, gender);
+      const audioBase64 = await generateTTS(previewText, voiceName, selectedSpeechModel);
       if (audioBase64) {
         await playBase64Audio(audioBase64, 24000);
       } else {
@@ -1694,6 +1747,59 @@ Identify any NEW specific, permanent, or important facts about the user (e.g. na
       liveTalkState === 'speaking' ? 'state-speaking' :
       'state-idle';
 
+    if (isQuotaExceeded) {
+      return (
+        <div className="w-full live-glow-wrapper live-glow-wrapper-active animate-fade-in">
+          <div className="w-full flex flex-col p-6 relative overflow-hidden rounded-[calc(2rem-3px)] select-none border border-white/10 shadow-2xl backdrop-blur-xl bg-black/95 transition-all duration-500 ease-in-out items-center justify-center text-center min-h-[280px]">
+            {/* Ambient Background Glows */}
+            <div className="inner-glow-blue" style={{ left: '20%', top: '20%' }} />
+            <div className="inner-glow-purple" style={{ right: '20%', bottom: '20%' }} />
+            
+            <div className="relative z-10 flex flex-col items-center max-w-sm">
+              <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mb-4 text-amber-400 animate-pulse shadow-lg shadow-amber-500/10">
+                <AlertTriangle className="w-7 h-7" />
+              </div>
+              
+              <h3 className="text-base font-black tracking-wider text-white mb-2 uppercase">
+                {activeLanguage === 'ti' ? "ዓቐን ተበጺሑ" : activeLanguage === 'am' ? "ገደብ ተደርሷል" : "Limit Reached"}
+              </h3>
+              
+              <p className="text-xs text-white/60 leading-relaxed font-ethiopic mb-5 px-4">
+                {activeLanguage === 'ti' 
+                  ? "እቲ ናይ ቀጥታ ፈነወ (Live Talk) ናይ ጀሚኒ ዓቐን ተጠቒምካዮ ኢኻ። ንግዝያዊ ብጽሑፍ ክትዘራረብ ትኽእል ኢኻ ወይ ድማ ጸኒሕካ ክትፍትን ትኽእል ኢኻ።"
+                  : activeLanguage === 'am'
+                  ? "የቀጥታ ንግግር (Live Talk) የጀሚኒ ገደብዎን ተጠቅመዋል። ለጊዜው በጽሑፍ መወያየት ይችላሉ ወይም ቆይተው እንደገና መሞከር ይችላሉ።"
+                  : "You have reached the usage limit for Live Voice conversation. You can still chat with the AI using standard high-thinking text chat below!"}
+              </p>
+
+              <button
+                onClick={() => {
+                  setIsQuotaExceeded(false);
+                  stopLiveSession();
+                }}
+                className="px-6 py-2.5 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-black tracking-wide shadow-xl shadow-amber-500/30 border border-white/10 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer flex items-center gap-2"
+              >
+                <MessageSquare className="w-4 h-4 text-amber-200" />
+                <span>
+                  {activeLanguage === 'ti' ? "ብጽሑፍ ተዘራረብ" : activeLanguage === 'am' ? "በጽሑፍ ተወያይ" : "Switch to Text Chat"}
+                </span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsQuotaExceeded(false);
+                  stopLiveSession();
+                }}
+                className="mt-4 text-[10px] font-bold text-white/40 hover:text-white/60 transition-colors uppercase tracking-widest cursor-pointer"
+              >
+                {activeLanguage === 'ti' ? "ዕጸው" : activeLanguage === 'am' ? "ዝጋ" : "Close"}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     if (isSessionTimedOut) {
       return (
         <div className="w-full live-glow-wrapper live-glow-wrapper-active">
@@ -1801,29 +1907,29 @@ Identify any NEW specific, permanent, or important facts about the user (e.g. na
               <motion.div 
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-56 h-56 rounded-full overflow-hidden border-2 border-emerald-500/30 shadow-[0_0_40px_rgba(16,185,129,0.2)] z-10 group"
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-56 h-56 rounded-full overflow-hidden border-2 border-emerald-500/30 shadow-[0_0_40px_rgba(16,185,129,0.3)] z-10 group pointer-events-auto"
               >
-                <video ref={videoRef} className="w-full h-full object-cover grayscale-[20%] group-hover:grayscale-0 transition-all duration-700" playsInline muted />
+                <video ref={videoRef} className="w-full h-full object-cover transition-all duration-700" playsInline muted />
                 
                 {/* AI Overlay Layer - Pulse when thinking/speaking */}
                 <div className={`absolute inset-0 transition-all duration-500 pointer-events-none ${
-                  liveTalkState === 'thinking' ? 'bg-indigo-500/10' : 
-                  liveTalkState === 'speaking' ? 'bg-pink-500/5' : ''
+                  liveTalkState === 'thinking' ? 'bg-indigo-500/15' : 
+                  liveTalkState === 'speaking' ? 'bg-pink-500/10' : ''
                 }`} />
 
-                {/* AI Watching Indicator */}
-                <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity">
+                {/* AI Watching Indicator (Always visible for clean UX) */}
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 shadow-lg">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   <span className="text-[7px] font-black uppercase text-emerald-400 tracking-tighter">AI Vision Stream</span>
                 </div>
                 
-                {/* Manual Capture Overlay Button */}
+                {/* Manual Capture Overlay Button (Always visible with nice hover effects, pointer-events-auto is fully active) */}
                 <button 
                   onClick={(e) => { e.stopPropagation(); captureVisionFrame(); }}
-                  className="absolute bottom-4 left-1/2 -translate-x-1/2 p-3 rounded-full bg-white/10 hover:bg-emerald-500 text-white backdrop-blur-md transition-all duration-300 active:scale-95 shadow-lg border border-white/10 flex items-center justify-center cursor-pointer group/btn"
+                  className="absolute bottom-4 left-1/2 -translate-x-1/2 p-3 rounded-full bg-black/65 hover:bg-emerald-500 text-white backdrop-blur-md transition-all duration-300 active:scale-95 shadow-lg border border-white/15 flex items-center justify-center cursor-pointer group/btn"
                   title="Force Sync Frame"
                 >
-                  <Camera className="w-5 h-5 group-hover/btn:scale-110 transition-transform" />
+                  <Camera className="w-5 h-5 group-hover/btn:scale-110 transition-transform text-white/90 group-hover/btn:text-white" />
                 </button>
               </motion.div>
             ) : (
@@ -2390,6 +2496,13 @@ Identify any NEW specific, permanent, or important facts about the user (e.g. na
     chatSessionRef.current = null;
   }, [chatLanguage]);
 
+  useEffect(() => {
+    if (chatInput === '') {
+      const textarea = document.getElementById('chat-input-textarea');
+      if (textarea) textarea.style.height = 'auto';
+    }
+  }, [chatInput]);
+
   const sendToAI = async (textToSend: string, historyContext: ChatMessage[]) => {
     // Learn new words
     textToSend.split(/\s+/).forEach(word => {
@@ -2443,7 +2556,72 @@ Identify any NEW specific, permanent, or important facts about the user (e.g. na
         : '';
       const activeModeInstruction = getModeSystemInstruction(activeAiMode);
       const modeString = activeModeInstruction ? `\n\n${activeModeInstruction}` : "";
-      const baseRules = `Role: Act as the Google Gemini Assistant.${modeString}\n\nTone Directive: ${tonePrompts[chatTone] || tonePrompts.Friendly}${memoryString}${customInstructionsString}${proactiveString}${habitString}
+      const baseRules = `Role: Act as the Google Gemini Assistant.${modeString}
+
+// YOUTUBE SCRIPT WIZARD DIRECTIVE:
+// You are the "AI Video Director" for a professional faceless YouTube production suite, and the user is your "Editor". 
+// Your job is to script, storyboard, and direct a video project from start to finish.
+You must guide the user step-by-step through an 11-stage interactive blueprinting process inside the chat.
+At every step, you MUST proactively offer tailored suggestions, and the user can freely discuss/adjust details naturally without breaking the process. Always remember the current step and context.
+At every step, you MUST use the interactive option format: "[OPTION: Label Text | SelectValue]" so the UI can render clickable option pills.
+
+THE 11 STEPS ARE AS FOLLOWS:
+- **Step 1: Video Length**. 
+  - First, ask: "What duration should this video be, from 1 to 10 minutes?" Provide options:
+    "[OPTION: Shorts/Reels | Length: 1 min]"
+    "[OPTION: 3 Minutes | Length: 3 mins]"
+    "[OPTION: 5 Minutes | Length: 5 mins]"
+    "[OPTION: 10 Minutes | Length: 10 mins]"
+
+- **Step 2: Audience & Goal**. 
+  - Ask: "Who is your target audience, and what is your goal for this video?" 
+  - Once the user answers, suggest the best audience type: "Is your audience kids, teenagers, students, adults, or all ages?" Provide options:
+    "[OPTION: Kids | Audience: Kids]"
+    "[OPTION: Teenagers | Audience: Teenagers]"
+    "[OPTION: Students | Audience: Students]"
+    "[OPTION: Adults | Audience: Adults]"
+    "[OPTION: All Ages | Audience: All Ages]"
+  - After selection, ask: "Would you like to proceed step-by-step manually, or would you prefer the AI to fully take over based on our past conversation?" Provide options:
+    "[OPTION: Manual Step-by-Step Flow | Manual Step-by-Step Flow]"
+    "[OPTION: Let AI Take Over (Auto Mode) | Let AI Take Over (Auto Mode)]"
+  - IF they choose "Auto Mode", SKIP steps 3-9 and immediately jump to **Step 10: Script Delivery**!
+  - IF they choose "Manual Step-by-Step Flow", proceed to Step 3.
+
+- **Step 3: Language**. 
+  - Propose languages:
+    "[OPTION: English 🇬🇧 | Language: English]"
+    "[OPTION: Tigrinya 🇪🇷 | Language: Tigrinya]"
+    "[OPTION: Amharic 🇪🇹 | Language: Amharic]"
+
+- **Step 4: Niche Selection**. 
+  - Suggest 4 popular niches: Tech & AI, Personal Finance, History & Mystery, Self-Improvement using "[OPTION: Niche: Name | Niche: Name]" pills.
+
+- **Step 5: Viral Concept**. 
+  - Propose 3-4 clickable, highly interesting viral topics. Use "[OPTION: Title | Concept: Title]" pills.
+
+- **Step 6: Voiceover Tone**. 
+  - Propose 4 voice personalities (e.g., Deep & Serious Cinematic, Energetic YouTuber, Calm & Educational, Professional & Direct) using "[OPTION: Tone Name | Tone: Tone Name]" pills.
+
+- **Step 7: Video Structure / Outline**. 
+  - Suggest 4 structural formats (e.g., Hook-Body-CTA, Listicle with 5 points, Myth vs Reality, Cinematic Documentary Storytelling) using "[OPTION: Structure Name | Structure: Structure Name]" pills.
+
+- **Step 8: Visual Style Suggestions**. 
+  - Suggest 4 visual styles (e.g., Moody Cinematic B-Roll, Stock Footage & overlays, Dark Minimalist Motion Graphics, Dynamic Kinetic Typography) using "[OPTION: Style Name | Style: Style Name]" pills.
+
+- **Step 9: Final Review**. 
+  - Summarize all choices clearly. Provide options:
+    "[OPTION: Yes, Generate Script! | Generate Script]"
+    "[OPTION: Adjust some details | Adjust details]"
+
+- **Step 10: Script Delivery (The Masterpiece)**.
+  - Produce the COMPLETE, fully-finished YouTube video script with Title proposals, Tags, Description, Thumbnail idea, Visual Style, Pacing & Captions, Voiceover script, and Detailed prompts. Append "[SAVE_PROJECT_CARD]".
+
+- **Step 11: Save Project & Complete**.
+  - UI displays the inline save card.
+
+Maintain a supportive, expert, director-like persona, and keep each step clean, engaging, and continuous.
+
+\n\nTone Directive: ${tonePrompts[chatTone] || tonePrompts.Friendly}${memoryString}${customInstructionsString}${proactiveString}${habitString}
 
 FORMATTING DIRECTIVE:
 1. Universal Structure: Organize your responses clearly and make everything well-structured and scannable.
@@ -2525,6 +2703,8 @@ Tool Usage:
         textToGen += "\n==================================\n";
       }
 
+      textToGen += `\n[System Info: Current local date and time is ${localTime.full}]\n`;
+
       // Process image and video payloads for Multimodal ingest
       const multimodalParts = currentAttachments
         .filter(f => (f.mimeType.startsWith("image/") || f.mimeType.startsWith("video/")) && f.base64)
@@ -2555,20 +2735,32 @@ Tool Usage:
         
         // Detect if a search was triggered
         if (candidate?.groundingMetadata?.webSearchQueries || candidate?.groundingMetadata?.searchEntryPoint || candidate?.groundingMetadata?.groundingChunks) {
+          setIsThinking(false);
           setIsSearching(true);
+          if (candidate?.groundingMetadata?.webSearchQueries) {
+            setSearchKeyword(candidate.groundingMetadata.webSearchQueries[0]);
+          }
         }
 
         if (candidate?.content?.parts) {
           for (const part of candidate.content.parts) {
             // Also check for explicit tool calls
             if (part.executableCode || (part as any).functionCall || (part as any).call?.googleSearch) {
+              setIsThinking(false);
               setIsSearching(true);
             }
             if (part.thought) {
+              if (!isThinking) {
+                setIsThinking(true);
+                setThinkingStartTime(Date.now());
+                setIsSearching(false);
+              }
               fullThought += part.thought;
               setStreamingThought(fullThought);
             }
             if (part.text) {
+              setIsThinking(false);
+              setIsSearching(false);
               fullResponse += part.text;
               setStreamingResponse(fullResponse);
             }
@@ -2704,10 +2896,12 @@ Tool Usage:
 
   const toggleCamera = async () => {
     if (isCameraActive) {
-      // Stop camera
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
+      // Stop camera cleanly via tracked stream ref
+      if (cameraStreamRef.current) {
+        cameraStreamRef.current.getTracks().forEach(track => track.stop());
+        cameraStreamRef.current = null;
+      }
+      if (videoRef.current) {
         videoRef.current.srcObject = null;
       }
       setIsCameraActive(false);
@@ -2723,16 +2917,53 @@ Tool Usage:
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } 
       });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
+      cameraStreamRef.current = stream;
+      
+      // 1. Mount <video> in DOM first
       setIsCameraActive(true);
+      
+      // 2. Wait for mounting complete, then bind stream
+      setTimeout(async () => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          try {
+            await videoRef.current.play();
+          } catch (playErr) {
+            console.error("Failed to play video stream:", playErr);
+          }
+        } else {
+          // Polling fallback
+          let attempts = 0;
+          const pollRef = setInterval(async () => {
+            attempts++;
+            if (videoRef.current) {
+              clearInterval(pollRef);
+              videoRef.current.srcObject = stream;
+              try {
+                await videoRef.current.play();
+              } catch (playErr) {
+                console.error("Failed to play video stream on polled ref:", playErr);
+              }
+            } else if (attempts > 12) {
+              clearInterval(pollRef);
+              stream.getTracks().forEach(track => track.stop());
+              cameraStreamRef.current = null;
+              setIsCameraActive(false);
+              showToast("Failed to initialize video preview.");
+            }
+          }, 80);
+        }
+      }, 50);
+
       showToast(activeLanguage === 'en' ? "Camera active. Tap capture to discuss." : "ካሜራ ተከፍቷል። ለመወያየት ምስል ቅረጹ።");
     } catch (err) {
       console.error("Camera access failed:", err);
       showToast(activeLanguage === 'en' ? "Failed to access camera" : "ካሜራ ማግኘት አልተቻለም");
       setIsCameraActive(false);
+      if (cameraStreamRef.current) {
+        cameraStreamRef.current.getTracks().forEach(track => track.stop());
+        cameraStreamRef.current = null;
+      }
     }
   };
 
@@ -2759,6 +2990,7 @@ Tool Usage:
 
   const stopLiveSession = useCallback(() => {
     setIsSessionTimedOut(false);
+    setIsQuotaExceeded(false);
     setIsLiveMode(false);
     setLiveTalkState('paused');
 
@@ -2771,10 +3003,12 @@ Tool Usage:
 
     const finalTranscriptList = [...liveSessionHistoryRef.current, ...endingMessages];
     
-    // Cleanup camera stream
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
+    // Cleanup camera stream robustly via ref tracking
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach(track => track.stop());
+      cameraStreamRef.current = null;
+    }
+    if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
     setIsCameraActive(false);
@@ -2897,8 +3131,73 @@ Tool Usage:
     setLiveTalkState('paused');
   }, [setChatMessages, activeLanguage, chatTone]);
 
+  const handleLiveSessionQuotaExceeded = useCallback((reason: string) => {
+    // Save final pending messages from refs before shutting down
+    const finalUser = liveTranscriptRef.current.trim();
+    const finalModel = liveResponseTranscriptRef.current.trim();
+    const endingMessages: ChatMessage[] = [];
+    if (finalUser) endingMessages.push({ role: 'user', parts: finalUser });
+    if (finalModel) endingMessages.push({ role: 'model', parts: finalModel });
+
+    const finalTranscriptList = [...liveSessionHistoryRef.current, ...endingMessages];
+    
+    setLiveSessionHistory(finalTranscriptList);
+    liveSessionHistoryRef.current = finalTranscriptList;
+
+    if (finalTranscriptList.length > 0) {
+        setChatMessages(existing => {
+            const uniqueNew = finalTranscriptList.filter(newMsg => 
+                !existing.some(existingMsg => 
+                    existingMsg.parts === newMsg.parts && existingMsg.role === newMsg.role
+                )
+            );
+            return [...existing, ...uniqueNew];
+        });
+
+        const newSession = {
+            id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            timestamp: new Date().toLocaleString(),
+            transcript: finalTranscriptList
+        };
+
+        setPastLiveSessions(past => {
+            const filteredPast = (past || []).filter(s => s && s.id && s.id !== newSession.id);
+            return [newSession, ...filteredPast];
+        });
+    }
+
+    // Clear active buffers so they don't show trailing states
+    liveTranscriptRef.current = '';
+    liveResponseTranscriptRef.current = '';
+    setLiveTranscript('');
+    setLiveResponseTranscript('');
+
+    try {
+      liveSessionRef.current?.close();
+    } catch (e) {}
+    try {
+      liveRecorderRef.current?.stop();
+    } catch (e) {}
+    try {
+      liveStreamerRef.current?.stop();
+    } catch (e) {}
+
+    liveSessionRef.current = null;
+    liveRecorderRef.current = null;
+    liveStreamerRef.current = null;
+    isLivePausedRef.current = false;
+    setIsLivePaused(false);
+    setIsAiSpeaking(false);
+    setLastWasInterrupted(false);
+
+    // Enter the quota exceeded state so we show the beautiful prompt inside renderLiveTalkUI
+    setIsQuotaExceeded(true);
+    setLiveTalkState('paused');
+  }, [setChatMessages, activeLanguage, chatTone]);
+
   const startLiveSession = useCallback(async (isAutoRestart = false) => {
     setIsSessionTimedOut(false);
+    setIsQuotaExceeded(false);
     if (isLiveMode && !isAutoRestart) return;
     
     // Auto-dismiss custom virtual keyboard to prevent layout blocking
@@ -2972,16 +3271,22 @@ Tool Usage:
                 }
             },
             onerror: (err: any) => {
-                console.error("Live Error:", err);
-                stopLiveSession();
-                showToast("Check your connection");
+                const errStr = String(err).toLowerCase();
+                const isQuotaOrLimit = errStr.includes("quota") || errStr.includes("limit") || errStr.includes("exceeded");
+                if (isQuotaOrLimit) {
+                    console.warn("Live Session Notice (Quota/Limit):", err);
+                    handleLiveSessionQuotaExceeded(typeof err === 'string' ? err : "Usage limit exceeded");
+                } else {
+                    console.error("Live Error:", err);
+                    stopLiveSession();
+                    showToast(typeof err === 'string' ? err : "Check your connection");
+                }
             },
             onmessage: (message: any) => {
                 if (isLivePausedRef.current) return;
 
                 // Check for errors sent from the server-side WebSocket bridge
                 if (message && message.error) {
-                    console.error("Gemini Live server-side error:", message.error, message.details);
                     const isGoAway = String(message.error).toLowerCase().includes("goaway") || 
                                      String(message.details || "").toLowerCase().includes("goaway") ||
                                      String(message.error).toLowerCase().includes("completed") ||
@@ -2989,6 +3294,18 @@ Tool Usage:
                     const isTimeout = message.error === "Live Session Completed" || 
                                       String(message.error).toLowerCase().includes("duration") || 
                                       String(message.details || "").toLowerCase().includes("duration");
+                    const isQuota = String(message.error).toLowerCase().includes("quota") ||
+                                    String(message.details || "").toLowerCase().includes("quota") ||
+                                    String(message.error).toLowerCase().includes("limit") ||
+                                    String(message.details || "").toLowerCase().includes("limit") ||
+                                    String(message.error).toLowerCase().includes("exceeded") ||
+                                    String(message.details || "").toLowerCase().includes("exceeded");
+                    
+                    if (isGoAway || isTimeout || isQuota) {
+                        console.warn("Gemini Live server-side notice (Expected Limit):", message.error, message.details);
+                    } else {
+                        console.error("Gemini Live server-side error:", message.error, message.details);
+                    }
                     
                     if (isGoAway) {
                         showToast("Resuming Live Talk session...");
@@ -2997,6 +3314,8 @@ Tool Usage:
                     }
                     if (isTimeout) {
                         handleLiveSessionTimeout(message.details || "Your session reached its limit");
+                    } else if (isQuota) {
+                        handleLiveSessionQuotaExceeded(message.details || "You have reached your current usage quota.");
                     } else {
                         showToast(`${message.error}: ${message.details || ''}`);
                         stopLiveSession();
@@ -3245,8 +3564,8 @@ Language Instructions:
     setIsGeneratingTTS(true);
     setPlayingChatTtsIndex(index);
     try {
-      const voiceName = getVoiceForModeAndGender(activeAiMode, activeVoiceGender);
-      const data = await generateTTS(textToRead, voiceName);
+      const voiceName = selectedSpeaker || getVoiceForModeAndGender(activeAiMode, activeVoiceGender);
+      const data = await generateTTS(textToRead, voiceName, selectedSpeechModel);
       if (data) {
         setAudioData(data);
         await playBase64Audio(data);
@@ -3267,8 +3586,8 @@ Language Instructions:
   const handleDownloadMessageAudio = async (textToDownload: string) => {
     setIsGeneratingTTS(true);
     try {
-      const voiceName = getVoiceForModeAndGender(activeAiMode, activeVoiceGender);
-      const data = await generateTTS(textToDownload, voiceName);
+      const voiceName = selectedSpeaker || getVoiceForModeAndGender(activeAiMode, activeVoiceGender);
+      const data = await generateTTS(textToDownload, voiceName, selectedSpeechModel);
       if (data) {
         downloadWav(data, `chat_audio_${Date.now()}.wav`);
         showToast("Download started");
@@ -3278,6 +3597,34 @@ Language Instructions:
       showToast("Download failed");
     } finally {
       setIsGeneratingTTS(false);
+    }
+  };
+
+  const handleGenerateScript = async () => {
+    if (!chatInput.trim()) {
+      return;
+    }
+    const topic = chatInput;
+    const userMessage: ChatMessage = { role: 'user', parts: `Generate video script for: ${topic}` };
+    setChatMessages(prev => [...prev, userMessage]);
+    setChatInput('');
+    
+    try {
+      const data = await callGeminiAPI('gemini-3.1-pro-preview', `Create a detailed video blueprint for: ${topic}. 
+      Include:
+      1. 3 Video Title suggestions (optimized for SEO).
+      2. Optimized Video Tags.
+      3. An attention-grabbing hook (for the first 5-10 seconds).
+      4. A scene-by-scene breakdown (Time, Visual Description, Voiceover Script, Pacing Cues).
+      5. Voiceover tone and style suggestions.
+      6. Thumbnail cover description.
+      Provide the output in a clear, structured Markdown format.`, {
+        aiModelMode: 'thinking'
+      });
+      const assistantMessage: ChatMessage = { role: 'model', parts: data.text };
+      setChatMessages(prev => [...prev, assistantMessage]);
+    } catch (e) {
+      setChatMessages(prev => [...prev, { role: 'model', parts: 'Failed to generate content.' }]);
     }
   };
 
@@ -3419,9 +3766,7 @@ Language Instructions:
       if (el) {
         // Need to set selection asynchronously to avoid fighting with React's DOM update
         setTimeout(() => {
-          if (document.activeElement === el) {
-            el.setSelectionRange(chatCursorIndex, chatCursorIndex);
-          }
+          el.setSelectionRange(chatCursorIndex, chatCursorIndex);
         }, 0);
       }
     }
@@ -3838,8 +4183,8 @@ Language Instructions:
     setIsGeneratingTTS(true);
     try {
       showToast("Generating audio...");
-      const voiceName = getVoiceForModeAndGender(activeAiMode, activeVoiceGender);
-      const audioBase64 = await generateTTS(text, voiceName);
+      const voiceName = selectedSpeaker || getVoiceForModeAndGender(activeAiMode, activeVoiceGender);
+      const audioBase64 = await generateTTS(text, voiceName, selectedSpeechModel);
       if (audioBase64) {
         await playBase64Audio(audioBase64, 24000);
       } else {
@@ -3857,8 +4202,8 @@ Language Instructions:
     if (playingChatTtsIndex === index || isGeneratingTTS) return;
     setPlayingChatTtsIndex(index);
     try {
-      const voiceName = getVoiceForModeAndGender(activeAiMode, activeVoiceGender);
-      const audioBase64 = await generateTTS(messageParts, voiceName);
+      const voiceName = selectedSpeaker || getVoiceForModeAndGender(activeAiMode, activeVoiceGender);
+      const audioBase64 = await generateTTS(messageParts, voiceName, selectedSpeechModel);
       if (audioBase64) {
         await playBase64Audio(audioBase64, 24000);
       } else {
@@ -4174,6 +4519,14 @@ Language Instructions:
     if (isEditing) {
       handleLayoutEdit(rowIndex, colIndex);
       return;
+    }
+
+    // Auto-focus the chat input text area if we are targeting chat input
+    if (keyboardTarget === 'chat') {
+      const el = document.getElementById('chat-input-textarea');
+      if (el && document.activeElement !== el) {
+        (el as HTMLElement).focus();
+      }
     }
 
     setActiveKey(key);
@@ -4736,13 +5089,6 @@ Language Instructions:
                     )}
                   </button>
                   <button 
-                    onClick={() => setIsReminderOpen(true)}
-                    className={`p-2 rounded-xl transition-all relative shrink-0 ${isReminderOpen ? 'bg-indigo-500/20 text-indigo-500' : (currentTheme.isDark ? 'text-white/40 hover:bg-white/10 hover:text-white' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-800')}`}
-                    title="Reminders"
-                  >
-                    <Clock className="w-5 h-5" />
-                  </button>
-                  <button 
                     onClick={() => setIsCalendarOpen(true)}
                     className={`p-2 rounded-xl transition-all relative shrink-0 ${isCalendarOpen ? 'bg-orange-500/20 text-orange-500' : (currentTheme.isDark ? 'text-white/40 hover:bg-white/10 hover:text-white' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-800')}`}
                     title="Calendar"
@@ -4763,6 +5109,14 @@ Language Instructions:
                   >
                     <FileText className="w-5 h-5" />
                   </button>
+                  <button 
+                    onClick={() => setIsTtsStudioOpen(true)}
+                    className={`p-2 rounded-xl transition-all relative shrink-0 ${isTtsStudioOpen ? 'bg-indigo-500/20 text-indigo-500' : (currentTheme.isDark ? 'text-white/40 hover:bg-white/10 hover:text-white' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-800')}`}
+                    title="TTS Studio (Text to Speech)"
+                  >
+                    <AudioLines className="w-5 h-5" />
+                  </button>
+
                 </div>
 
                 {/* Mobile Workspace Tools Dropdown */}
@@ -4770,7 +5124,7 @@ Language Instructions:
                   <button 
                     onClick={() => setIsToolsDropdownOpen(!isToolsDropdownOpen)}
                     className={`p-2 rounded-xl transition-all relative shrink-0 ${
-                      isToolsDropdownOpen || isMemoryDrawerOpen || isReminderOpen || isCalendarOpen || isTasksOpen || isKeepOpen
+                      isToolsDropdownOpen || isMemoryDrawerOpen || isCalendarOpen || isTasksOpen || isKeepOpen
                         ? 'bg-indigo-500/20 text-indigo-500' 
                         : (currentTheme.isDark ? 'text-white/40 hover:bg-white/10 hover:text-white' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-800')
                     }`}
@@ -4812,19 +5166,6 @@ Language Instructions:
 
                           <button
                             onClick={() => {
-                              setIsReminderOpen(true);
-                              setIsToolsDropdownOpen(false);
-                            }}
-                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-xs font-bold transition-all ${
-                              currentTheme.isDark ? 'hover:bg-white/5 text-white/80' : 'hover:bg-slate-100 text-slate-700'
-                            }`}
-                          >
-                            <Clock className="w-4 h-4 text-indigo-500" />
-                            <span>Reminders</span>
-                          </button>
-
-                          <button
-                            onClick={() => {
                               setIsCalendarOpen(true);
                               setIsToolsDropdownOpen(false);
                             }}
@@ -4861,6 +5202,21 @@ Language Instructions:
                             <FileText className="w-4 h-4 text-yellow-500" />
                             <span>Keep Notes</span>
                           </button>
+
+                            <button
+                              onClick={() => {
+                                setShowSpeechBooth(true);
+                                setIsToolsDropdownOpen(false);
+                              }}
+                              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-xs font-bold transition-all ${
+                                currentTheme.isDark ? 'hover:bg-white/5 text-white/80' : 'hover:bg-slate-100 text-slate-700'
+                              }`}
+                            >
+                              <Mic className="w-4 h-4 text-indigo-500" />
+                              <span>Speech Booth</span>
+                            </button>
+
+
                         </motion.div>
                       </>
                     )}
@@ -4881,15 +5237,58 @@ Language Instructions:
                 >
                   <Settings2 className="w-5 h-5" />
                 </button>
+                <button 
+                  onClick={() => toggleMenu('dataTable')}
+                  className={`p-1.5 sm:p-2 rounded-xl transition-all shrink-0 ${activeMenus.dataTable ? 'bg-indigo-500/20 text-indigo-500' : (currentTheme.isDark ? 'text-white/40 hover:bg-white/10 hover:text-white' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-800')}`}
+                  title="Data Table View"
+                >
+                  <TableIcon className="w-5 h-5" />
+                </button>
+
+                <button 
+                  onClick={() => {
+                    setShowYTProjectPanel(!showYTProjectPanel);
+                    if (!showYTProjectPanel) {
+                      setActiveAiMode('youtube_wizard');
+                    } else {
+                      setActiveAiMode('default');
+                    }
+                  }}
+                  className={`p-1.5 sm:p-2 rounded-xl transition-all shrink-0 hover:scale-105 active:scale-95 ${showYTProjectPanel ? 'bg-red-500/25 text-red-500 border border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.15)]' : (currentTheme.isDark ? 'text-white/40 hover:bg-white/10 hover:text-white' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-800')}`}
+                  title="Saved YouTube Scripts"
+                >
+                  <Folder className="w-5 h-5" />
+                </button>
              </div>
           </div>
         </header>
 
-        {/* Viewport: Switcher */}
-        <main className="flex-1 flex flex-col w-full min-h-0 overflow-hidden relative">
+        {/* Main Viewport */}
+        <main className="flex-1 flex flex-col w-full min-h-0 overflow-hidden relative z-10">
           
           {/* Chat Area - Main Content */}
           <section className="flex-1 flex flex-col min-w-0 min-h-0 bg-transparent overflow-hidden">
+            {showYTProjectPanel && (
+              <div className="shrink-0 z-30 animate-slide-down">
+                <YTProjectPanel
+                  currentTheme={currentTheme}
+                  onClose={() => setShowYTProjectPanel(false)}
+                  onLoadScript={(script) => {
+                    setChatInput(script);
+                    showToast("✓ Script loaded into input area!");
+                  }}
+                  onAppendScriptToChat={(title, scriptText) => {
+                    const assistantMessage: ChatMessage = { role: 'model', parts: `### 🎬 ${title}\n\n${scriptText}` };
+                    setChatMessages(prev => [...prev, assistantMessage]);
+                    showToast("✓ Copied script to active chat!");
+                  }}
+                  activeScriptData={ytActiveScriptData}
+                  onClearActiveScript={() => setYtActiveScriptData(null)}
+                />
+              </div>
+            )}
+
+
             {activeSessionId.startsWith('live-') && (
               <div className={`p-4 mx-4 mt-4 rounded-3xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative overflow-hidden shrink-0 ${
                 currentTheme.isDark 
@@ -4944,8 +5343,10 @@ Language Instructions:
 
                    <div 
                      ref={chatContainerRef}
-                     className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pt-4 px-1 pb-10"
+                     className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pt-4 px-1 pb-48"
                    >
+
+
                      {displayMessages.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center select-none">
                           <motion.div 
@@ -5067,8 +5468,139 @@ Language Instructions:
                                       )
                                     }}
                                   >
-                                    {msg.parts}
+                                    {msg.parts.replace(/\[OPTION:\s*[^|\]]+?\s*\|\s*[^\]]+?\s*\]/g, '').replace(/\[SAVE_PROJECT_CARD\]/g, '').trim() || (activeLanguage === 'ti' ? "በጃኻ ካብዞም ዝስዕቡ ሓደ ምረጽ፡" : activeLanguage === 'am' ? "እባክዎን ከሚከተሉት አንዱን ይምረጡ፦" : "Please select an option below:")}
                                   </ReactMarkdown>
+                                  
+                                  {/* Interactive Wizard Option Pills */}
+                                  {(() => {
+                                    const options: { label: string; value: string }[] = [];
+                                    const optionRegex = /\[OPTION:\s*([^|\]]+?)\s*\|\s*([^\]]+?)\s*\]/g;
+                                    let match;
+                                    while ((match = optionRegex.exec(msg.parts)) !== null) {
+                                      options.push({
+                                        label: match[1].trim(),
+                                        value: match[2].trim()
+                                      });
+                                    }
+                                    if (options.length === 0) return null;
+                                    return (
+                                      <div className="flex flex-wrap gap-2 mt-4">
+                                        {options.map((opt, optIdx) => (
+                                          <button
+                                            key={`opt-${i}-${optIdx}`}
+                                            onClick={() => {
+                                              sendToAI(opt.value, displayMessages.slice(0, i + 1));
+                                            }}
+                                            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold border hover:scale-105 active:scale-[0.97] transition-all cursor-pointer ${
+                                              currentTheme.isDark
+                                                ? 'bg-red-500/5 border-red-500/15 text-red-200 hover:bg-red-500/15 hover:border-red-500/30 hover:text-white shadow-md shadow-red-500/5'
+                                                : 'bg-red-50 border-red-100 text-red-750 hover:bg-red-100/70 hover:border-red-200 hover:text-red-800 shadow-sm'
+                                            }`}
+                                          >
+                                            {opt.label}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    );
+                                  })()}
+
+                                  {/* Inline Project Save Card */}
+                                  {msg.parts.includes('[SAVE_PROJECT_CARD]') && (
+                                    <div className={`mt-4 p-4.5 rounded-2xl border transition-all ${
+                                      currentTheme.isDark 
+                                        ? 'bg-red-500/5 border-red-500/20 text-white shadow-lg' 
+                                        : 'bg-red-50/75 border-red-200 text-slate-800 shadow-md'
+                                    } max-w-xl`}>
+                                      <div className="flex items-center gap-2 mb-2.5">
+                                        <div className="p-1.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500">
+                                          <Folder className="w-4 h-4 animate-bounce" />
+                                        </div>
+                                        <div>
+                                          <h4 className="text-xs sm:text-sm font-black uppercase tracking-wider text-red-500 dark:text-red-400">
+                                            {activeLanguage === 'ti' ? "ናይ ዩቱብ ስክሪፕት ኣቐምጥ" : activeLanguage === 'am' ? "የዩቲዩብ ስክሪፕት አስቀምጥ" : "Save Your YouTube Script"}
+                                          </h4>
+                                          <p className="text-[10px] opacity-60">
+                                            {activeLanguage === 'ti' ? "ኣብ ማህደር ስክሪፕትካ ብውሕስነት ኣቐምጦ" : activeLanguage === 'am' ? "በማህደርዎ ውስጥ ስክሪፕቱን በደህንነት ያስቀምጡ" : "Store this blueprint securely in your offline project repository"}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      
+                                      {chatSavedProjects[i] ? (
+                                        <div className="py-2 flex items-center gap-2 text-emerald-500 font-bold text-xs sm:text-sm">
+                                          <Check className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500 animate-pulse" />
+                                          <span>✓ {activeLanguage === 'ti' ? "ብዓወት ተዓቂቡ ኣሎ!" : activeLanguage === 'am' ? "በስኬት ተቀምጧል!" : "Saved successfully!"} ("{chatProjectNames[i] || (activeLanguage === 'ti' ? "ሓድሽ ቪድዮ ስክሪፕት" : "አዲስ ቪዲዮ ስክሪፕት")}")</span>
+                                        </div>
+                                      ) : (
+                                        <div className="flex flex-col gap-2.5">
+                                          <input 
+                                            type="text"
+                                            value={chatProjectNames[i] !== undefined ? chatProjectNames[i] : (activeLanguage === 'ti' ? "ናተይ ቪድዮ ስክሪፕት" : activeLanguage === 'am' ? "የእኔ ቪዲዮ ስክሪፕት" : "My YouTube Video Script")}
+                                            onChange={(e) => {
+                                              setChatProjectNames(prev => ({ ...prev, [i]: e.target.value }));
+                                            }}
+                                            placeholder={activeLanguage === 'ti' ? "ስም ናይቲ ቪድዮ ስክሪፕት..." : activeLanguage === 'am' ? "የቪዲዮው ስክሪፕት ስም..." : "Enter a descriptive project name..."}
+                                            className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium border focus:outline-none transition-colors ${
+                                              currentTheme.isDark 
+                                                ? 'bg-black/40 border-white/10 text-white focus:border-red-500/50' 
+                                                : 'bg-white border-slate-200 text-slate-800 focus:border-red-500/50'
+                                            }`}
+                                          />
+                                          <div className="flex flex-col gap-2">
+                                            <button
+                                              onClick={async () => {
+                                                const titleToSave = chatProjectNames[i] || (activeLanguage === 'ti' ? "ናተይ ቪድዮ ስክሪፕት" : activeLanguage === 'am' ? "የእኔ ቪዲዮ ስክሪፕት" : "My YouTube Video Script");
+                                                const cleanText = msg.parts.replace(/\[OPTION:\s*[^|\]]+?\s*\|\s*[^\]]+?\s*\]/g, '').replace(/\[SAVE_PROJECT_CARD\]/g, '').trim();
+                                                
+                                                // Improved parsing using the new strict format
+                                                const nicheMatch = cleanText.match(/\[PROJECT_NICHE\]\s*:\s*(.+)/i);
+                                                const toneMatch = cleanText.match(/\[PROJECT_TONE\]\s*:\s*(.+)/i);
+                                                const styleMatch = cleanText.match(/\[PROJECT_STYLE\]\s*:\s*(.+)/i);
+                                                const titleMatch = cleanText.match(/\[PROJECT_TITLE\]\s*:\s*(.+)/i);
+                                                const outlineMatch = cleanText.match(/\[PROJECT_OUTLINE\]\s*:\s*([\s\S]+?)(?=\[PROJECT_SCRIPT\]|$)/i);
+                                                const scriptMatch = cleanText.match(/\[PROJECT_SCRIPT\]\s*:\s*([\s\S]+)/i);
+
+                                                const finalTitle = titleMatch ? titleMatch[1].trim() : titleToSave;
+                                                const finalNiche = nicheMatch ? nicheMatch[1].trim() : "Faceless Production";
+                                                const finalTone = toneMatch ? toneMatch[1].trim() : "Professional";
+                                                const finalStyle = styleMatch ? styleMatch[1].trim() : "Cinematic";
+                                                const finalOutline = outlineMatch ? outlineMatch[1].trim() : "Video Outline";
+                                                const finalScript = scriptMatch ? scriptMatch[1].trim() : cleanText;
+
+                                                const stored = localStorage.getItem('faceless_yt_projects');
+                                                let projects = [];
+                                                if (stored) {
+                                                  try { projects = JSON.parse(stored); } catch (e) { console.error(e); }
+                                                }
+
+                                                const newProject = {
+                                                  id: `proj_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                                                  title: finalTitle,
+                                                  niche: finalNiche,
+                                                  concept: finalTitle,
+                                                  tone: finalTone,
+                                                  outline: finalOutline,
+                                                  visualStyle: finalStyle,
+                                                  scriptText: finalScript,
+                                                  savedAt: new Date().toISOString()
+                                                };
+
+                                                const updated = [newProject, ...projects];
+                                                localStorage.setItem('faceless_yt_projects', JSON.stringify(updated));
+                                                
+                                                setChatSavedProjects(prev => ({ ...prev, [i]: true }));
+                                                showToast(`✓ "${finalTitle}" archived with all details!`);
+                                              }}
+                                              className="w-full py-3.5 rounded-2xl bg-gradient-to-br from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white text-sm font-bold cursor-pointer flex items-center justify-center gap-2.5 shadow-xl shadow-red-900/40 active:scale-[0.98] transition-all"
+                                            >
+                                              <Save className="w-5 h-5" />
+                                              <span>{activeLanguage === 'ti' ? "ኩሉ ኣብ ማህደር ኣቐምጦ" : activeLanguage === 'am' ? "ሁሉንም በማህደር አስቀምጥ" : "Archive All Details to Suite"}</span>
+                                            </button>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
                                   <MessageLinksAndSources msg={msg} isDark={currentTheme.isDark} />
                                 </>
                              </div>
@@ -5077,6 +5609,17 @@ Language Instructions:
                                 currentTheme.isDark ? 'text-white/30' : 'text-slate-400'
                              }`}>
                                 <button onClick={() => copyToClipboard(msg.parts)} className={`hover:text-indigo-500 transition-colors ${currentTheme.isDark ? 'hover:text-indigo-400' : ''}`} title="Copy"><Copy className="w-4 h-4"/></button>
+                                <button 
+                                  onClick={() => {
+                                    setYtInitialContext(msg.parts);
+                                    setIsYTCreatorMode(true);
+                                    showToast(activeLanguage === 'ti' ? "✓ ካብዚ ዕላል ዝተረኽበ ኣርእስቲ ተገይሩ ኣሎ!" : activeLanguage === 'am' ? "✓ ከዚህ ውይይት የተገኘው አርእስት ተመርጧል!" : "✓ Loaded message context for Script Creator!");
+                                  }} 
+                                  className={`hover:text-red-500 transition-colors ${currentTheme.isDark ? 'hover:text-red-400' : ''}`} 
+                                  title="Create YouTube Script"
+                                >
+                                  <Video className="w-4 h-4 text-red-500/80 hover:text-red-500" />
+                                </button>
                                 {msg.role === 'model' && (
                                   <>
                                     <button onClick={() => handleGenerateTTS(msg.parts, i)} className={`hover:text-indigo-500 transition-colors ${playingChatTtsIndex === i ? 'text-indigo-500' : (currentTheme.isDark ? 'hover:text-indigo-400' : '')}`} title="Read Aloud"><Volume2 className="w-4 h-4"/></button>
@@ -5087,6 +5630,66 @@ Language Instructions:
                           </div>
                        </motion.div>
                      ))}
+
+                     {false && (
+                        <motion.div 
+                          initial={{ opacity: 0, y: 15 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="group flex items-start gap-3 sm:gap-4 p-4 sm:p-5 rounded-2xl transition-all bg-transparent hover:bg-black/[0.015] dark:hover:bg-white/[0.01] max-w-4xl mx-auto w-full mb-4"
+                        >
+                          <div className="shrink-0 mt-1">
+                            <div className="w-8 h-8 sm:w-9.5 sm:h-9.5 rounded-full flex items-center justify-center bg-gradient-to-tr from-red-500 via-pink-500 to-rose-600 shadow-lg shadow-red-500/10 animate-pulse-slow">
+                              <Video className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-white" />
+                            </div>
+                          </div>
+                          <div className="flex-1 min-w-0 flex flex-col gap-1 font-sans">
+                            <span className={`text-xs font-bold uppercase tracking-widest ${
+                              currentTheme.isDark ? 'text-white/40' : 'text-slate-400'
+                            }`}>
+                              {activeLanguage === 'ti' ? "ናይ ዩቱብ ስክሪፕት ረዳት" : activeLanguage === 'am' ? "የዩቲዩብ ስክሪፕት ረዳት" : "YouTube Script Assistant"}
+                            </span>
+                            
+                            <div className="mt-3">
+                              <FacelessYTCreator
+                                activeLanguage={activeLanguage}
+                                currentTheme={currentTheme}
+                                onClose={() => setIsYTCreatorMode(false)}
+                                initialContextText={ytInitialContext}
+                                onClearContext={() => setYtInitialContext('')}
+                                onAppendScriptToChat={(title, scriptMarkdown) => {
+                                  const userMessage: ChatMessage = { role: 'user', parts: `Create a faceless YouTube script about: ${title}` };
+                                  const assistantMessage: ChatMessage = { role: 'model', parts: `### 🎬 ${title}\n\n${scriptMarkdown}` };
+                                  setChatMessages(prev => [...prev, userMessage, assistantMessage]);
+                                  setIsYTCreatorMode(false);
+                                  showToast("✓ Script appended to active chat!");
+                                }}
+                                onOpenSavePanel={(scriptData) => {
+                                  setYtActiveScriptData(scriptData);
+                                  setShowYTProjectPanel(true);
+                                  showToast("✓ Project Ready to Save below!");
+                                }}
+                                onChoiceSelected={(stepNum, stepName, choice) => {
+                                  const stepLabel = stepName === 'niche' ? 'Niche' : stepName === 'concept' ? 'Video Concept' : stepName === 'tone' ? 'Voice Tone' : stepName === 'outline' ? 'Video Structure' : 'Visual Style';
+                                  const msgText = `🎯 **Step ${stepNum} Selected (${stepLabel}):** ${choice}`;
+                                  setChatMessages(prev => [
+                                    ...prev,
+                                    { role: 'user', parts: msgText }
+                                  ]);
+                                }}
+                                onScrollToBottom={() => {
+                                  if (chatContainerRef.current) {
+                                    chatContainerRef.current.scrollTo({
+                                      top: chatContainerRef.current.scrollHeight,
+                                      behavior: 'smooth'
+                                    });
+                                  }
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </motion.div>
+                     )}
+
                      {isAssistantTyping && (
                        <motion.div 
                          animate={{
@@ -5165,149 +5768,28 @@ Language Instructions:
                                           <ArrowUpRight className="w-3.5 h-3.5 shrink-0 text-indigo-500/80 dark:text-indigo-300/80" />
                                         </a>
                                       )
-                                    }}
-                                  >
-                                    {displayedStreamingResponse}
-                                  </ReactMarkdown>
-                                  <MessageLinksAndSources msg={{ role: 'model', parts: displayedStreamingResponse, groundingSources: streamingSources }} isDark={currentTheme.isDark} />
-                                </div>
-                              ) : (
-                                <CosmicThinkingIndicator isDark={currentTheme.isDark} />
-                              )}
-                           </div>
+                                    }
+                                  }
+                                >
+                                  {displayedStreamingResponse}
+                                </ReactMarkdown>
+                              </div>
+                            ) : null}
+                            </div>
                         </motion.div>
-                      )}
-                      <div ref={chatEndRef} />
-                    </div>
-                  </motion.div>
+                     )}
+                   </div>
+                 </motion.div>
            </section>
 
-          <SettingsDrawer 
-            isOpen={isSettingsDrawerOpen} 
-            onClose={() => setIsSettingsDrawerOpen(false)} 
-            currentTheme={currentTheme}
-            factoryReset={factoryReset}
-            physicalKeyboardSync={physicalKeyboardSync}
-            setPhysicalKeyboardSync={setPhysicalKeyboardSync}
-            isThemeScheduled={isThemeScheduled}
-            setIsThemeScheduled={setIsThemeScheduled}
-            themeKey={themeKey}
-            setThemeKey={setThemeKey}
-            THEMES={THEMES}
-            activeAiMode={activeAiMode}
-            onSelectMode={handleSelectMode}
-            activeVoiceGender={activeVoiceGender}
-            onSelectGender={handleSelectGender}
-            onSpeedChange={handleSpeedChange}
-            speed={speed}
-            onMicSelect={handleMicSelect}
-            selectedMic={selectedMic}
-            availableMicrophones={availableMicrophones}
-            onPreviewVoice={handlePreviewVoice}
-            isPreviewing={isPreviewingVoice}
-            previewingModeId={previewingModeId}
-            previewingGender={previewingGender}
-            t={t}
-            activeLanguage={activeLanguage}
-            proactiveSuggestions={proactiveSuggestionsEnabled}
-            setProactiveSuggestions={setProactiveSuggestionsEnabled}
-            habitTracking={habitTrackingEnabled}
-            setHabitTracking={setHabitTrackingEnabled}
-            isMemoryEnabled={isMemoryEnabled}
-            onToggleMemoryEnabled={handleToggleMemoryEnabled}
-            currentUser={currentUser}
-            onSignIn={handleSignIn}
-            onSignOut={handleSignOut}
-            customSystemInstructions={customSystemInstructions}
-            onSaveCustomSystemInstructions={handleSaveCustomSystemInstructions}
-          />
-
-          <MemoryBankDrawer
-            isOpen={isMemoryDrawerOpen}
-            onClose={() => setIsMemoryDrawerOpen(false)}
-            memories={memories}
-            onAddMemory={handleAddMemory}
-            onEditMemory={handleEditMemory}
-            onDeleteMemory={handleDeleteMemory}
-            onClearAllMemories={handleClearAllMemories}
-            currentTheme={currentTheme}
-            isMemoryEnabled={isMemoryEnabled}
-            onToggleMemoryEnabled={handleToggleMemoryEnabled}
-            currentUser={currentUser}
-            onSignIn={handleSignIn}
-            onSignOut={handleSignOut}
-            customSystemInstructions={customSystemInstructions}
-            onSaveCustomSystemInstructions={handleSaveCustomSystemInstructions}
-            t={t}
-            activeLanguage={activeLanguage}
-          />
-
-
-
-
-
-          {quotaWarning && (
-            <div id="quota-warning-overlay" className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/65 backdrop-blur-md p-4 animate-fade-in">
-              <div className="bg-neutral-900/90 border border-red-500/35 rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl shadow-red-500/10 flex flex-col items-center">
-                <div className="relative mb-4">
-                  <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center animate-pulse">
-                    <AlertTriangle className="w-8 h-8 text-red-500" />
-                  </div>
-                  <div className="absolute -top-1 -right-1 bg-red-500 text-white font-mono text-[10px] font-bold px-2 py-0.5 rounded-full animate-bounce">
-                    #{quotaWarning.attempt}
-                  </div>
-                </div>
-                
-                <h3 className="text-base font-black tracking-wider text-white mb-2 uppercase font-sans">
-                  {activeLanguage === 'ti' ? "ናይ ምጥቃም ገደብ በጺሑ" : activeLanguage === 'am' ? "የአጠቃቀም ገደብ ደርሰዋል" : "Rate Limit Reached"}
-                </h3>
-                
-                <p className="text-xs text-white/70 leading-relaxed mb-6 px-2 font-ethiopic">
-                  {activeLanguage === 'ti' 
-                    ? `ናይ ጀሚኒ ኤፒአይ ንግዚኡ ተጸሚዱ ወይ ተገዲቡ ኣሎ። ድሕሪ ${(quotaWarning.delayMs / 1000).toFixed(1)} ሰከንድ ብኣውቶማቲክ እንደገና ክፍተን እዩ...`
-                    : activeLanguage === 'am'
-                    ? `የጀሚኒ ኤፒአይ ለጊዜው በስራ ተጠምዷል ወይም ተገድቧል። ከ ${(quotaWarning.delayMs / 1000).toFixed(1)} ሰከንድ በኋላ በራስ-ሰር እንደገና ይሞከራል...`
-                    : `The Gemini API is temporarily busy or rate-limited. Retrying automatically in ${(quotaWarning.delayMs / 1000).toFixed(1)}s...`}
-                </p>
-
-                <div className="w-full flex justify-center items-center gap-3">
-                  <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest animate-pulse">
-                    {activeLanguage === 'ti' ? "እንደገና ምፍታን..." : activeLanguage === 'am' ? "እንደገና እየተሞከረ..." : "Retrying in Background..."}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Post-Session Voice Tracker & Conversation Review Panel - REMOVED */}
-
-
-
-
-
-
-
-
-
-
-
-
-
-          
-          {/* Main content continues */}
-        </main>
-
-        {/* Input & Control Hub - Universal Standard */}
         <div className="w-full shrink-0 flex flex-col items-center relative z-20 max-w-3xl mx-auto px-4 sm:px-0 pb-3">
           <AnimatePresence mode="wait">
             {isLiveMode && (
               <motion.div
                 initial={{ opacity: 0, y: 15, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 15, scale: 0.95 }}
-                transition={{ duration: 0.25 }}
-                className="w-full max-w-xl mx-auto mb-4"
+                exit={{ opacity: 0, y: -15, scale: 0.95 }}
+                className={`w-full p-4 sm:p-5 rounded-3xl border ${currentTheme.isDark ? 'bg-slate-900 border-indigo-500/30 shadow-[0_0_40px_rgba(99,102,241,0.15)]' : 'bg-white border-indigo-500/30 shadow-xl'}`}
               >
                 {renderLiveTalkUI()}
               </motion.div>
@@ -5321,7 +5803,7 @@ Language Instructions:
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
-                  className={`mb-6 max-w-full px-5 py-3 rounded-2xl ${currentTheme.isDark ? 'bg-indigo-500/20 text-white border-indigo-500/30' : 'bg-indigo-50 text-indigo-900 border-indigo-100'} border text-base font-medium flex items-center gap-3 shadow-lg`}
+                  className="absolute -top-10 flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 text-xs font-bold font-sans shadow-sm"
                 >
                   <div className="w-2 h-2 shrink-0 rounded-full bg-indigo-500 animate-pulse" />
                   <span className="truncate">{interimTranscript || t('listening')}...</span>
@@ -5364,52 +5846,51 @@ Language Instructions:
 
             <div className={`w-full relative flex flex-col p-2 sm:p-3 rounded-3xl border transition-all duration-200 ${
               currentTheme.isDark 
-                ? 'bg-cosmic-bg/60 border-white/10 shadow-[0_0_50px_-12px_rgba(79,70,229,0.2)] backdrop-blur-2xl focus-within:border-indigo-500/30 focus-within:shadow-[0_0_50px_-12px_rgba(79,70,229,0.4)]' 
-                : 'bg-white border-slate-200 shadow-xl shadow-slate-200/50'
-            }`}>
+                ? 'bg-slate-900/90 border-white/10 shadow-[0_0_40px_rgba(0,0,0,0.5)]' 
+                : 'bg-white border-slate-200 shadow-[0_10px_40px_rgba(0,0,0,0.05)]'
+            } backdrop-blur-xl group`}>
               
-              {/* ATTACHED FILES PREVIEWS MODULE */}
-              <FileAttachmentModule 
-                attachedFiles={attachedFiles}
-                onAddAttachment={(file) => setAttachedFiles(prev => [...prev, file])}
-                onRemoveAttachment={(id) => setAttachedFiles(prev => prev.filter(f => f.id !== id))}
-                currentTheme={currentTheme}
-                mode="preview"
-              />
+              <div className="flex items-end gap-2 w-full relative">
+                <div className="flex items-center gap-1">
+                  <FileAttachmentModule 
+                    attachedFiles={attachedFiles}
+                    onAddAttachment={(file) => setAttachedFiles(prev => [...prev, file])}
+                    onRemoveAttachment={(id) => setAttachedFiles(prev => prev.filter(f => f.id !== id))}
+                    currentTheme={currentTheme}
+                    mode="trigger"
+                    aiModelMode={aiModelMode}
+                    setAiModelMode={setAiModelMode}
+                  />
+                  <button 
+                    onClick={() => {
+                      if (!showChatKeyboard) {
+                        document.getElementById('chat-input-textarea')?.blur();
+                      }
+                      setShowChatKeyboard(!showChatKeyboard);
+                    }}
+                    className={`p-2 rounded-xl transition-all duration-200 flex items-center justify-center border ${
+                      showChatKeyboard 
+                        ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' 
+                        : (currentTheme.isDark ? 'text-white/50 hover:text-white hover:bg-white/5 border-transparent hover:border-white/10' : 'text-slate-400 hover:text-slate-800 hover:bg-slate-100 border-transparent hover:border-slate-200')
+                    }`}
+                    title="Keyboard"
+                  >
+                    <Keyboard className="w-4 h-4" />
+                  </button>
+                </div>
 
-              <div className="flex flex-col gap-2 relative px-1 pb-1">
-                <textarea 
+                <textarea
                   id="chat-input-textarea"
                   ref={chatInputRef}
-                  rows={isInputFocused ? 4 : 1}
                   value={chatInput}
                   onChange={(e) => {
                     setChatInput(e.target.value);
-                    setChatCursorIndex(e.target.selectionStart || e.target.value.length);
+                    setChatCursorIndex(e.target.selectionStart || 0);
                   }}
-                  onSelect={(e) => {
-                    const target = e.target as HTMLTextAreaElement;
-                    setChatCursorIndex(target.selectionStart || chatInput.length);
-                  }}
-                  onKeyUp={(e) => {
-                    const target = e.target as HTMLTextAreaElement;
-                    setChatCursorIndex(target.selectionStart || chatInput.length);
-                  }}
-                  onFocus={() => {
-                    setKeyboardTarget('chat');
-                    setIsInputFocused(true);
-                    setShowChatKeyboard(false);
-                    setTimeout(() => {
-                      if (chatContainerRef.current) {
-                        chatContainerRef.current.scrollTo({ top: chatContainerRef.current.scrollHeight, behavior: 'smooth' });
-                      }
-                    }, 200);
-                  }}
-                  onBlur={() => {
-                    setTimeout(() => {
-                      setIsInputFocused(false);
-                    }, 200);
-                  }}
+                  onFocus={() => { setKeyboardTarget('chat'); }}
+                  onSelect={(e) => { setChatCursorIndex(e.currentTarget.selectionStart || 0); }}
+                  onClick={(e) => { setChatCursorIndex(e.currentTarget.selectionStart || 0); }}
+                  onKeyUp={(e) => { setChatCursorIndex(e.currentTarget.selectionStart || 0); }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
@@ -5417,99 +5898,97 @@ Language Instructions:
                     }
                   }}
                   placeholder={t('chatPlaceholder')}
-                  className={`w-full min-h-[44px] bg-transparent border-none focus:ring-0 py-3 text-base resize-none custom-scrollbar font-ethiopic ${currentTheme.isDark ? 'text-white placeholder:text-white/40' : 'text-slate-900 placeholder:text-slate-400'} outline-none leading-[1.7] overflow-y-auto transition-all duration-300`}
+                  className={`flex-1 max-h-32 min-h-[44px] bg-transparent resize-none border-none focus:ring-0 text-sm font-ethiopic leading-relaxed py-3 px-2 ${
+                    currentTheme.isDark ? 'text-white placeholder:text-white/30' : 'text-slate-900 placeholder:text-slate-400'
+                  }`}
+                  rows={1}
                 />
                 
-                <div className="flex items-center justify-between gap-2 border-t border-slate-200/50 dark:border-white/10 pt-2">
-                  <div className="flex items-center gap-1">
-                    {/* UNIFIED TOOL TRIGGER (+) */}
-                    <FileAttachmentModule 
-                      attachedFiles={attachedFiles}
-                      onAddAttachment={(file) => setAttachedFiles(prev => [...prev, file])}
-                      onRemoveAttachment={(id) => setAttachedFiles(prev => prev.filter(f => f.id !== id))}
-                      currentTheme={currentTheme}
-                      mode="trigger"
-                      aiModelMode={aiModelMode}
-                      setAiModelMode={setAiModelMode}
-                    />
-
-                    <button 
+                <div className="flex items-center gap-1 pb-1">
+                  {/* ASR Mode Toggle */}
+                  <button 
+                    onClick={() => setEnhancedTigrinyaMode(!enhancedTigrinyaMode)}
+                    className={`p-2 rounded-xl transition-all duration-200 flex items-center justify-center border ${
+                      enhancedTigrinyaMode 
+                         ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' 
+                         : (currentTheme.isDark ? 'text-white/30 hover:text-white/50 hover:bg-white/5 border-transparent' : 'text-slate-300 hover:text-slate-500 hover:bg-slate-50 border-transparent')
+                    }`}
+                    title={enhancedTigrinyaMode ? "Switch to Standard Voice" : "Switch to Custom ASR (Tigrigna)"}
+                  > 
+                    <Zap className={`w-4 h-4 ${enhancedTigrinyaMode ? 'animate-pulse' : ''}`} />
+                  </button>
+                  {(isSpeechRecognitionSupported || enhancedTigrinyaMode) && (
+                      <button 
+                        onClick={() => toggleListening('chat')}
+                        className={`p-2 rounded-xl transition-all duration-200 flex items-center justify-center border ${
+                          (isListening || isEnhancedRecording) 
+                             ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' 
+                             : (enhancedTigrinyaMode 
+                                 ? 'bg-amber-500/5 text-amber-500/60 border-amber-500/10 hover:bg-amber-500/10 hover:text-amber-500' 
+                                 : (currentTheme.isDark ? 'text-white/50 hover:text-white hover:bg-white/5 border-transparent hover:border-white/10' : 'text-slate-400 hover:text-slate-800 hover:bg-slate-100 border-transparent hover:border-slate-200')
+                              )
+                        }`}
+                        title="Voice Input"
+                      > 
+                        <Mic className={`w-4 h-4 ${(isListening || isEnhancedRecording) ? 'animate-bounce' : ''}`} />
+                      </button>
+                  )}
+                  <button 
                       onClick={() => {
-                        if (!showChatKeyboard) {
-                          document.getElementById('chat-input-textarea')?.blur();
-                        }
-                        setShowChatKeyboard(!showChatKeyboard);
+                        const triggerPrompt = activeLanguage === 'ti'
+                          ? "ሰላም! 🎬 ሓቢርና ደረጃ ብደረጃ ቫይራል ዝኸውን ናይ ዩቱብ ቪድዮ ስክሪፕት ንዳሎ። በጃኻ ንታሪኽ/ዓውዲ (Niche) ምረጽ ብምባል ካብ ደረጃ 1 ጀምር።"
+                          : activeLanguage === 'am'
+                            ? "ሰላም! 🎬 አብረን ደረጃ በደረጃ ቫይራል የሚሆን የዩቲዩብ ቪዲዮ ስክሪፕት እናዘጋጅ። እባክህ ደረጃ 1: ቻናል ኒሽ (Niche) በመምረጥ ጀምር።"
+                            : "Let's create a high-retention, viral faceless YouTube script step-by-step together! Act as my expert YouTube Script AI Director. Please guide me through the flow, beginning with Step 1: Channel Niche selection (offer me some popular choices and let me type custom if I want).";
+                        
+                        sendToAI(triggerPrompt, chatMessages);
                       }}
-                      className={`p-2 rounded-xl transition-all duration-200 flex items-center justify-center border ${
-                        showChatKeyboard 
-                          ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' 
-                          : (currentTheme.isDark ? 'text-white/50 hover:text-white hover:bg-white/5 border-transparent hover:border-white/10' : 'text-slate-400 hover:text-slate-800 hover:bg-slate-100 border-transparent hover:border-slate-200')
-                      }`}
-                      title="Keyboard"
-                    >
-                      <Keyboard className="w-4 h-4" />
-                    </button>
-                  </div>
-                  
-                  {/* Action buttons (Mic, Live, Send) moved or integrated here as needed */}
-                  <div className="flex items-center gap-1">
-                    {/* ASR Mode Toggle */}
-                    <button 
-                      onClick={() => setEnhancedTigrinyaMode(!enhancedTigrinyaMode)}
-                      className={`p-2 rounded-xl transition-all duration-200 flex items-center justify-center border ${
-                        enhancedTigrinyaMode 
-                          ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' 
-                          : (currentTheme.isDark ? 'text-white/30 hover:text-white/50 hover:bg-white/5 border-transparent' : 'text-slate-300 hover:text-slate-500 hover:bg-slate-50 border-transparent')
-                      }`}
-                      title={enhancedTigrinyaMode ? "Switch to Standard Voice" : "Switch to Custom ASR (Tigrigna)"}
-                    >
-                       <Zap className={`w-4 h-4 ${enhancedTigrinyaMode ? 'animate-pulse' : ''}`} />
-                    </button>
-
-                    {(isSpeechRecognitionSupported || enhancedTigrinyaMode) && (
-                        <button 
-                          onClick={() => toggleListening('chat')}
-                          className={`p-2 rounded-xl transition-all duration-200 flex items-center justify-center border ${
-                            (isListening || isEnhancedRecording) 
-                              ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' 
-                              : (enhancedTigrinyaMode 
-                                  ? 'bg-amber-500/5 text-amber-500/60 border-amber-500/10 hover:bg-amber-500/10 hover:text-amber-500' 
-                                  : (currentTheme.isDark ? 'text-white/50 hover:text-white hover:bg-white/5 border-transparent hover:border-white/10' : 'text-slate-400 hover:text-slate-800 hover:bg-slate-100 border-transparent hover:border-slate-200')
-                                )
-                          }`}
-                          title="Voice Input"
-                        >
-                           <Mic className={`w-4 h-4 ${(isListening || isEnhancedRecording) ? 'animate-bounce' : ''}`} />
-                        </button>
-                    )}
-                    <button 
-                        onClick={toggleLiveMode}
-                        className={`p-2 rounded-xl transition-all duration-200 flex items-center justify-center border ${isLiveMode ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : (currentTheme.isDark ? 'text-white/50 hover:text-white hover:bg-white/5 border-transparent hover:border-white/10' : 'text-slate-400 hover:text-slate-800 hover:bg-slate-100 border-transparent hover:border-slate-200')}`}
-                        title="Live Conversation"
-                    >
-                         <Radio className="w-4 h-4" />
-                    </button>
-                    <button 
-                        onClick={handleSendChatMessage}
-                        className="p-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-all cursor-pointer"
-                        title="Send"
-                    >
-                        <Send className="w-4 h-4" />
-                    </button>
-                  </div>
+                      className={`p-2 rounded-xl transition-all duration-200 flex items-center justify-center border hover:scale-105 active:scale-95 cursor-pointer ${currentTheme.isDark ? 'text-white/50 hover:text-red-400 hover:bg-red-500/5 border-transparent hover:border-red-500/10' : 'text-slate-400 hover:text-red-500 hover:bg-red-50 border-transparent hover:border-red-200'}`}
+                      title="Faceless YouTube Script Wizard"
+                  > 
+                      <Pencil className="w-4 h-4" />
+                  </button>
+                  <button 
+                      onClick={toggleLiveMode}
+                      className={`p-2 rounded-xl transition-all duration-200 flex items-center justify-center border ${isLiveMode ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : (currentTheme.isDark ? 'text-white/50 hover:text-white hover:bg-white/5 border-transparent hover:border-white/10' : 'text-slate-400 hover:text-slate-800 hover:bg-slate-100 border-transparent hover:border-slate-200')}`}
+                      title="Live Conversation"
+                  > 
+                      <Radio className="w-4 h-4" />
+                  </button>
+                  <button 
+                      onClick={handleSendChatMessage}
+                      className="p-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-all cursor-pointer"
+                      title="Send"
+                  >
+                      <Send className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+        </main>
 
       <AnimatePresence>
         {showChatKeyboard && renderKeyboardUI()}
       </AnimatePresence>
-
       {/* Global Overlays (Modals/Drawers) */}
-
+      <AnimatePresence>
+        {activeMenus.dataTable && (
+          <DataTableModule
+            currentTheme={currentTheme}
+            onClose={() => toggleMenu('dataTable')}
+            translationHistory={translationHistory}
+            chatSessions={chatSessions}
+          />
+        )}
+        {showSpeechBooth && (
+          <SpeechBooth 
+            currentTheme={currentTheme} 
+            onClose={() => setShowSpeechBooth(false)} 
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {activeMenus.theme && (
@@ -5531,6 +6010,7 @@ Language Instructions:
                     className={`p-6 rounded-[2rem] border transition-all text-left ${themeKey === id ? 'border-indigo-500 bg-indigo-500/5' : (currentTheme.isDark ? 'border-white/5 bg-white/5' : 'border-slate-200 bg-slate-50')} hover:scale-[1.02] active:scale-[0.98]`}
                   >
                      {id === 'system' ? (
+
                        <div className="w-8 h-8 rounded-full mb-3 flex overflow-hidden border border-slate-300 dark:border-white/10">
                          <div className="w-1/2 h-full bg-slate-100" />
                          <div className="w-1/2 h-full bg-slate-900" />
@@ -5547,6 +6027,82 @@ Language Instructions:
       </AnimatePresence>
 
       {/* Universal Left Sidebar History Standard */}
+      <SettingsDrawer
+        isOpen={isSettingsDrawerOpen}
+        onClose={() => {
+          setIsSettingsDrawerOpen(false);
+          setActiveMenus(prev => ({ ...prev, settings: false }));
+        }}
+        currentTheme={currentTheme}
+        factoryReset={factoryReset}
+        physicalKeyboardSync={physicalKeyboardSync}
+        setPhysicalKeyboardSync={setPhysicalKeyboardSync}
+        isThemeScheduled={isThemeScheduled}
+        setIsThemeScheduled={setIsThemeScheduled}
+        themeKey={themeKey}
+        setThemeKey={setThemeKey}
+        THEMES={THEMES}
+        activeAiMode={activeAiMode}
+        onSelectMode={handleSelectMode}
+        activeVoiceGender={activeVoiceGender}
+        onSelectGender={(gender) => {
+          setActiveVoiceGender(gender);
+          try {
+            localStorage.setItem('active_voice_gender', gender);
+          } catch {}
+        }}
+        onSpeedChange={(s) => {
+          setSpeed(s);
+          setSpeechRate(s);
+        }}
+        speed={speed}
+        onMicSelect={setSelectedMic}
+        selectedMic={selectedMic}
+        availableMicrophones={availableMicrophones}
+        onPreviewVoice={handlePreviewVoice}
+        isPreviewing={isPreviewingVoice}
+        previewingModeId={previewingModeId}
+        previewingGender={previewingGender}
+        t={t}
+        activeLanguage={activeLanguage}
+        proactiveSuggestions={proactiveSuggestionsEnabled}
+        setProactiveSuggestions={setProactiveSuggestionsEnabled}
+        habitTracking={habitTrackingEnabled}
+        setHabitTracking={setHabitTrackingEnabled}
+        isMemoryEnabled={isMemoryEnabled}
+        onToggleMemoryEnabled={handleToggleMemoryEnabled}
+        currentUser={currentUser}
+        onSignIn={handleSignIn}
+        onSignOut={handleSignOut}
+        customSystemInstructions={customSystemInstructions}
+        onSaveCustomSystemInstructions={handleSaveCustomSystemInstructions}
+        isEditingKeyboard={isEditing}
+        setIsEditingKeyboard={setIsEditing}
+        selectedSpeaker={selectedSpeaker}
+        onSelectSpeaker={(speaker) => {
+          setSelectedSpeaker(speaker);
+          try {
+            localStorage.setItem('selected_speaker', speaker);
+          } catch {}
+        }}
+        selectedSpeechModel={selectedSpeechModel}
+        onSelectSpeechModel={(model) => {
+          setSelectedSpeechModel(model);
+          try {
+            localStorage.setItem('selected_speech_model', model);
+          } catch {}
+        }}
+      />
+
+      <TtsStudioModal
+        isOpen={isTtsStudioOpen}
+        onClose={() => setIsTtsStudioOpen(false)}
+        currentTheme={currentTheme}
+        defaultSpeaker={selectedSpeaker}
+        defaultModel={selectedSpeechModel}
+        showToast={showToast}
+      />
+
       <AnimatePresence>
         {activeMenus.history && (
            <>
@@ -5924,6 +6480,7 @@ Language Instructions:
       </AnimatePresence>
 
       {/* Reminders Module */}
+      <DailyTip isDark={currentTheme.isDark} />
       <AnimatePresence>
         {showOnboarding && (
           <OnboardingGuide 
@@ -5936,16 +6493,6 @@ Language Instructions:
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {isReminderOpen && currentUser && (
-          <ReminderModule 
-            userId={currentUser.uid}
-            isOpen={isReminderOpen}
-            onClose={() => setIsReminderOpen(false)}
-            isDark={currentTheme.isDark}
-          />
-        )}
-      </AnimatePresence>
       <AnimatePresence>
         {isCalendarOpen && (
           <CalendarModule 
@@ -5975,12 +6522,38 @@ Language Instructions:
       </AnimatePresence>
 
       <AnimatePresence>
+        {isMemoryDrawerOpen && (
+          <MemoryBankDrawer
+            isOpen={isMemoryDrawerOpen}
+            onClose={() => setIsMemoryDrawerOpen(false)}
+            memories={memories}
+            onAddMemory={handleAddMemory}
+            onEditMemory={handleEditMemory}
+            onDeleteMemory={handleDeleteMemory}
+            onClearAllMemories={handleClearAllMemories}
+            currentTheme={currentTheme}
+            isMemoryEnabled={isMemoryEnabled}
+            onToggleMemoryEnabled={handleToggleMemoryEnabled}
+            currentUser={currentUser}
+            onSignIn={handleSignIn}
+            onSignOut={handleSignOut}
+            customSystemInstructions={customSystemInstructions}
+            onSaveCustomSystemInstructions={handleSaveCustomSystemInstructions}
+            t={t}
+            activeLanguage={activeLanguage}
+          />
+        )}
+      </AnimatePresence>
+
+
+      <AnimatePresence>
         {toastMessage && (
           <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[2000] px-6 py-3 rounded-full bg-slate-800 text-white text-xs font-bold uppercase tracking-widest shadow-2xl border border-white/10">
             {toastMessage}
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
     </div>
     </div>
   );

@@ -80,7 +80,7 @@ export async function testConnection() {
     console.log("[Firestore] Connection verified successfully with server.");
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("[Firestore] Please check your Firebase configuration. Client is offline.");
+      console.warn("[Firestore] Initial check: Client is offline. This is expected in a sandboxed/restricted environment or before terms are accepted.");
     } else {
       console.warn("[Firestore] Initial connectivity check (expected if test collection empty):", error);
     }

@@ -207,8 +207,10 @@ export const MemoryBankDrawer = ({
                 </button>
               </div>
 
+
+
               {/* Cloud Sync Status Widget */}
-              <div className={`p-4 rounded-2xl border flex flex-col gap-3.5 transition-all duration-300 ${
+              <div className={`p-4 mb-6 rounded-2xl border flex flex-col gap-3.5 transition-all duration-300 ${
                 currentTheme.isDark 
                   ? 'bg-white/[0.01] border-white/5' 
                   : 'bg-slate-50/30 border-slate-200/60'
@@ -285,7 +287,6 @@ export const MemoryBankDrawer = ({
                   </div>
                 )}
               </div>
-
               {/* Help Tip Overlay */}
               <AnimatePresence>
                 {showHelp && (

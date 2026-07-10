@@ -1,0 +1,25 @@
+      </div>
+      <AnimatePresence>
+        {showChatKeyboard && renderKeyboardUI()}
+      </AnimatePresence>
+      {/* Global Overlays (Modals/Drawers) */}
+      <AnimatePresence>
+        {activeMenus.theme && (
+           <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className={`fixed inset-x-0 bottom-0 z-[1000] ${currentTheme.isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'} border-t rounded-t-[3rem] p-8 pb-[env(safe-area-inset-bottom)] shadow-2xl`}>
+              <div className="flex justify-between items-center mb-8">
+                <div className="flex items-center gap-3">
+                  <Palette className="w-5 h-5 text-indigo-500" />
+                  <h3 className={`text-xl font-bold ${currentTheme.isDark ? 'text-white' : 'text-slate-900'}`}>Appearance</h3>
+                </div>
+                <button onClick={() => toggleMenu('theme')} className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                  <X className={`w-6 h-6 ${currentTheme.isDark ? 'text-white/40 hover:text-white' : 'text-slate-400 hover:text-slate-800'}`} />
+                </button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {Object.entries(THEMES).map(([id, t]) => (
+                  <button 
+                    key={id}
+                    onClick={() => setThemeKey(id as ThemeKey)}
+                    className={`p-6 rounded-[2rem] border transition-all text-left ${themeKey === id ? 'border-indigo-500 bg-indigo-500/5' : (currentTheme.isDark ? 'border-white/5 bg-white/5' : 'border-slate-200 bg-slate-50')} hover:scale-[1.02] active:scale-[0.98]`}
+                  >
+                     {id === 'system' ? (

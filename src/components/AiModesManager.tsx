@@ -154,6 +154,17 @@ export const AI_MODES_LIST: AiModeConfig[] = [
     color: "from-rose-500 to-red-600",
   },
   {
+    id: 'content_creator',
+    name: "AI Content Creator",
+    description: "Expert in content strategy, script generation, and monetization.",
+    voiceMood: "Energetic, persuasive, savvy.",
+    maleVoice: "Fenrir",
+    femaleVoice: "Aoede",
+    previewText: "Let's create engaging content that converts and helps you grow.",
+    icon: PenTool,
+    color: "from-indigo-500 to-violet-600",
+  },
+  {
     id: 'langbuddy',
     name: "Language Buddy",
     description: "Casual practice partner.",

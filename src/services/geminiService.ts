@@ -76,9 +76,9 @@ export const callGeminiAPI = async (model: string, contents: any, config?: any) 
   };
 
   let attempt = 1;
-  let currentDelay = 1000;
-  const maxAttempts = 4;
-  const backoffFactor = 2;
+  let currentDelay = 2000;
+  const maxAttempts = 6;
+  const backoffFactor = 2.5;
 
   while (true) {
     try {
@@ -198,9 +198,9 @@ export const sendMessageStreamToAI = async function*(chatOrHistory: any, message
 
   let response: Response;
   let attempt = 1;
-  let currentDelay = 1000;
-  const maxAttempts = 4;
-  const backoffFactor = 2;
+  let currentDelay = 2000;
+  const maxAttempts = 6;
+  const backoffFactor = 2.5;
 
   while (true) {
     try {
@@ -275,12 +275,12 @@ export const sendMessageStreamToAI = async function*(chatOrHistory: any, message
 /**
  * Text-to-Speech Generation Proxy
  */
-export const generateTTS = async (text: string, voiceName: string = 'Kore'): Promise<string | null> => {
+export const generateTTS = async (text: string, voiceName: string = 'Kore', model?: string): Promise<string | null> => {
   try {
     const response = await fetch("/api/gemini/tts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, voiceName }),
+      body: JSON.stringify({ text, voiceName, model }),
     });
 
     if (response.status === 429) {
@@ -305,7 +305,7 @@ export const generateTTS = async (text: string, voiceName: string = 'Kore'): Pro
 /**
  * Highly Advanced Gemini Live WebSocket Tunnel client
  */
-export const connectToLiveAPI = (callbacks: LiveCallbacks, systemInstruction?: string, voiceName: string = "Zephyr") => {
+export const connectToLiveAPI = (callbacks: LiveCallbacks, systemInstruction?: string, voiceName: string = "Zephyr", tools: any[] = [{ googleSearch: {} }]) => {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const wsUrl = `${protocol}//${window.location.host}/api/live-talk`;
   const socket = new WebSocket(wsUrl);
@@ -316,7 +316,8 @@ export const connectToLiveAPI = (callbacks: LiveCallbacks, systemInstruction?: s
       socket.send(JSON.stringify({
         setup: {
           systemInstruction,
-          voiceName
+          voiceName,
+          tools
         }
       }));
     }
@@ -331,9 +332,15 @@ export const connectToLiveAPI = (callbacks: LiveCallbacks, systemInstruction?: s
     callbacks.onerror(err);
   };
 
-  socket.onmessage = (event) => {
+  socket.onmessage = async (event) => {
     try {
       const message = JSON.parse(event.data);
+      
+      if (message.error) {
+        callbacks.onerror(message.error + (message.details ? ": " + message.details : ""));
+        return;
+      }
+      
       callbacks.onmessage(message);
     } catch (e) {
       console.error("WS client onmessage error processing JSON:", e);
@@ -458,7 +465,7 @@ export const geminiTranscribe = async (base64Audio: string, mimeType: string, la
     }
   }
 
-  const result = await callGeminiAPI("gemini-2.5-flash", [
+  const result = await callGeminiAPI("gemini-3.5-flash", [
     { role: 'user', parts: [
       { text: prompt },
       { inlineData: { mimeType: normalizedMimeType, data: base64Audio } }

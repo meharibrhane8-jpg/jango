@@ -48,7 +48,7 @@ interface SettingsDrawerProps {
   onMicSelect: (deviceId: string) => void;
   selectedMic: string;
   availableMicrophones: MediaDeviceInfo[];
-  onPreviewVoice?: (modeId: string, gender: 'female' | 'male', previewText: string) => void;
+  onPreviewVoice?: (modeId: string, gender: 'female' | 'male', previewText: string, specificVoiceName?: string) => void;
   isPreviewing?: boolean;
   previewingModeId?: string | null;
   previewingGender?: 'female' | 'male' | null;
@@ -65,6 +65,12 @@ interface SettingsDrawerProps {
   onSignOut: () => void;
   customSystemInstructions: string;
   onSaveCustomSystemInstructions: (instructions: string) => void;
+  isEditingKeyboard?: boolean;
+  setIsEditingKeyboard?: (val: boolean) => void;
+  selectedSpeaker: string;
+  onSelectSpeaker: (speaker: string) => void;
+  selectedSpeechModel: string;
+  onSelectSpeechModel: (model: string) => void;
 }
 
 export const SettingsDrawer = ({ 
@@ -104,42 +110,38 @@ export const SettingsDrawer = ({
   onSignIn,
   onSignOut,
   customSystemInstructions,
-  onSaveCustomSystemInstructions
+  onSaveCustomSystemInstructions,
+  isEditingKeyboard = false,
+  setIsEditingKeyboard,
+  selectedSpeaker,
+  onSelectSpeaker,
+  selectedSpeechModel,
+  onSelectSpeechModel
 }: SettingsDrawerProps) => {
   const [showPersonalityMenu, setShowPersonalityMenu] = useState(false);
   const [showVoiceMenu, setShowVoiceMenu] = useState(false);
   const [showMicMenu, setShowMicMenu] = useState(false);
+  const [showModelMenu, setShowModelMenu] = useState(false);
   
-  const [selectedVoiceName, setSelectedVoiceName] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem('selected_voice_name');
-      if (saved) return saved;
-    } catch {}
-    return activeVoiceGender === 'female' ? 'Ara' : 'Leo';
-  });
-
   const handleSelectVoice = (name: string, gender: 'female' | 'male') => {
-    setSelectedVoiceName(name);
-    try {
-      localStorage.setItem('selected_voice_name', name);
-    } catch {}
+    onSelectSpeaker(name);
     onSelectGender(gender);
   };
 
   const handlePreviewClick = (e: React.MouseEvent, voice: any) => {
     e.stopPropagation();
     if (onPreviewVoice) {
-      onPreviewVoice(activeAiMode || 'default', voice.gender, t('voicePreview'));
+      onPreviewVoice(activeAiMode || 'default', voice.gender, t('voicePreview'), voice.name);
     }
   };
 
   const VOICES = [
-    { name: 'Ara', gender: 'female' as const, desc: 'Upbeat Female' },
-    { name: 'Eve', gender: 'female' as const, desc: 'Soothing Female' },
-    { name: 'Leo', gender: 'male' as const, desc: 'British Male' },
-    { name: 'Rex', gender: 'male' as const, desc: 'Calm Male' },
-    { name: 'Sal', gender: 'male' as const, desc: 'Smooth Male' },
-    { name: 'Gork', gender: 'male' as const, desc: 'Lazy Male' }
+    { name: 'Kore', gender: 'female' as const, desc: 'Clear Female - Best Default Voice' },
+    { name: 'Aoede', gender: 'female' as const, desc: 'Soothing & Calm Female' },
+    { name: 'Charon', gender: 'male' as const, desc: 'Deep & Serious Male' },
+    { name: 'Puck', gender: 'male' as const, desc: 'Energetic Male' },
+    { name: 'Fenrir', gender: 'male' as const, desc: 'Professional Business Male' },
+    { name: 'Selam', gender: 'female' as const, desc: 'Tigrinya Optimized Voice (Ge\'ez Cadence)' }
   ];
 
   return (
@@ -295,12 +297,76 @@ export const SettingsDrawer = ({
                     </div>
                   </div>
 
+                  {/* Speech Model Selector Dropdown */}
+                  <div className="flex flex-col gap-2 relative">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-xs font-bold opacity-80">Speech Model</h4>
+                      <span className="text-[10px] font-extrabold opacity-60 bg-indigo-500/10 text-indigo-500 px-2 py-0.5 rounded-full uppercase tracking-wider scale-90">
+                        Model
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <button 
+                        type="button"
+                        className={`w-full p-3 rounded-xl border flex justify-between items-center text-xs transition-all outline-none ${
+                          currentTheme.isDark 
+                            ? 'border-white/10 bg-slate-950 text-white hover:border-indigo-500/50 hover:bg-slate-900' 
+                            : 'border-slate-200 bg-white text-slate-800 hover:border-indigo-500/50 hover:bg-slate-50'
+                        }`}
+                        onClick={() => setShowModelMenu(!showModelMenu)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <BrainCircuit className="w-3.5 h-3.5 text-indigo-500" />
+                          <span className="font-bold">
+                            {selectedSpeechModel === 'gemini-3.1-flash-tts-preview' 
+                              ? 'Gemini 3.1 Flash TTS (Best Default)' 
+                              : selectedSpeechModel === 'gemini-3.1-flash-live-preview' 
+                                ? 'Gemini 3.1 Live' 
+                                : selectedSpeechModel === 'gemini-2.5-flash' 
+                                  ? 'Gemini 2.5 Flash' 
+                                  : selectedSpeechModel}
+                          </span>
+                        </div>
+                        <ChevronDown className="w-4 h-4 opacity-50" />
+                      </button>
+                      
+                      {showModelMenu && (
+                        <div className={`absolute left-0 right-0 mt-1.5 p-1.5 rounded-xl border space-y-1 max-h-[180px] overflow-y-auto z-50 shadow-xl ${
+                          currentTheme.isDark ? 'border-white/10 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-800'
+                        }`}>
+                          {[
+                            { id: 'gemini-3.1-flash-tts-preview', name: 'Gemini 3.1 Flash TTS (Best Default)' },
+                            { id: 'gemini-3.1-flash-live-preview', name: 'Gemini 3.1 Live' },
+                            { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' }
+                          ].map(model => (
+                            <button 
+                              key={model.id}
+                              type="button"
+                              onClick={() => {
+                                onSelectSpeechModel(model.id);
+                                setShowModelMenu(false);
+                              }}
+                              className={`w-full p-2.5 text-left text-xs rounded-lg flex justify-between items-center transition-colors ${
+                                selectedSpeechModel === model.id 
+                                  ? 'bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 font-bold' 
+                                  : 'hover:bg-slate-100 dark:hover:bg-slate-900/50'
+                              }`}
+                            >
+                              <span className="font-bold">{model.name}</span>
+                              {selectedSpeechModel === model.id && <Check className="w-3.5 h-3.5 text-indigo-500" />}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Voice Selector Dropdown */}
                   <div className="flex flex-col gap-2 relative">
                     <div className="flex justify-between items-center">
-                      <h4 className="text-xs font-bold opacity-80">Voice Gender & Sub-voice</h4>
+                      <h4 className="text-xs font-bold opacity-80">Speaker Voice</h4>
                       <span className="text-[10px] font-extrabold opacity-60 bg-indigo-500/10 text-indigo-500 px-2 py-0.5 rounded-full uppercase tracking-wider scale-90">
-                        Voice
+                        Speaker
                       </span>
                     </div>
                     <div className="relative">
@@ -316,7 +382,7 @@ export const SettingsDrawer = ({
                         <div className="flex items-center gap-2">
                           <Volume2 className="w-3.5 h-3.5 text-indigo-500" />
                           <span className="font-bold">
-                            {selectedVoiceName} ({activeVoiceGender === 'female' ? 'Female' : 'Male'} - {VOICES.find(v => v.name === selectedVoiceName)?.desc || ''})
+                            {selectedSpeaker} ({activeVoiceGender === 'female' ? 'Female' : 'Male'} - {VOICES.find(v => v.name === selectedSpeaker)?.desc || ''})
                           </span>
                         </div>
                         <ChevronDown className="w-4 h-4 opacity-50" />
@@ -327,7 +393,7 @@ export const SettingsDrawer = ({
                           currentTheme.isDark ? 'border-white/10 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-800'
                         }`}>
                           {VOICES.map(voice => {
-                            const isSelected = voice.name === selectedVoiceName && voice.gender === activeVoiceGender;
+                            const isSelected = voice.name === selectedSpeaker;
                             const isVoicePlaying = isPreviewing && previewingGender === voice.gender;
                             
                             return (
@@ -467,8 +533,10 @@ export const SettingsDrawer = ({
                 </div>
               </div>
 
+
+
               {/* Account / Google Sign In */}
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-3 mb-6">
                 <span className="text-xs font-black uppercase tracking-wider opacity-50 font-sans">Account & Security</span>
                 <div className={`flex flex-col gap-3 p-4 rounded-2xl border ${
                   currentTheme.isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-slate-50'
@@ -527,7 +595,6 @@ export const SettingsDrawer = ({
                   )}
                 </div>
               </div>
-
               {/* Preferences */}
               <div className="flex flex-col gap-3">
                 <span className="text-xs font-black uppercase tracking-wider opacity-50 font-sans">{t('preferences')}</span>
@@ -589,6 +656,32 @@ export const SettingsDrawer = ({
                     <motion.div animate={{ x: habitTracking ? 24 : 0 }} className="w-4 h-4 bg-white rounded-full shadow-sm" />
                   </button>
                 </div>
+
+                {/* Keyboard Layout Editor Option */}
+                {setIsEditingKeyboard && (
+                  <div className={`flex items-center justify-between p-4 rounded-2xl border ${
+                    currentTheme.isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-slate-50'
+                  }`}>
+                    <div className="flex items-center gap-3">
+                      <Palette className="w-4 h-4 opacity-70"/>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold">{t('layoutEditor') || 'Customize Keyboard Layout'}</span>
+                        <span className="text-[10px] opacity-60">Add, delete, or rearrange keyboard keys</span>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        setIsEditingKeyboard(!isEditingKeyboard);
+                        if (!isEditingKeyboard) {
+                          onClose();
+                        }
+                      }}
+                      className={`w-12 h-6 rounded-full transition-colors flex items-center px-1 shrink-0 cursor-pointer ${isEditingKeyboard ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'}`}
+                    >
+                      <motion.div animate={{ x: isEditingKeyboard ? 24 : 0 }} className="w-4 h-4 bg-white rounded-full shadow-sm" />
+                    </button>
+                  </div>
+                )}
               </div>
               
               {/* Reset Option */}

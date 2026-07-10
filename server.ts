@@ -448,7 +448,7 @@ Please wait a brief moment and try again. If you are developing locally, please 
   }
 
   app.post("/api/gemini/generateContent", async (req, res) => {
-    let { model: requestedModel, contents, config } = req.body;
+    let { model: requestedModel, contents, config, aiModelMode } = req.body;
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return res
@@ -474,14 +474,25 @@ Please wait a brief moment and try again. If you are developing locally, please 
 
       // Map models to standard Interactions API models
       let model = requestedModel || "gemini-3.5-flash";
-      if (model.includes("pro")) {
+      let generationConfig: any = config ? { ...config } : {};
+
+      if (aiModelMode === "thinking") {
         model = "gemini-3.1-pro-preview";
-      } else if (model.includes("lite") || model.includes("8b")) {
-        model = "gemini-3.1-flash-lite";
-      } else if (model.includes("2.5-flash") || model === "gemini-2.5-flash") {
-        model = "gemini-2.5-flash";
+        generationConfig.thinkingConfig = {
+          thinkingLevel: ThinkingLevel.HIGH
+        };
+        delete generationConfig.maxOutputTokens;
+        delete generationConfig.max_output_tokens;
       } else {
-        model = "gemini-3.5-flash";
+        if (model.includes("pro")) {
+          model = "gemini-3.1-pro-preview";
+        } else if (model.includes("lite") || model.includes("8b")) {
+          model = "gemini-3.1-flash-lite";
+        } else if (model.includes("2.5-flash") || model === "gemini-2.5-flash") {
+          model = "gemini-2.5-flash";
+        } else {
+          model = "gemini-3.5-flash";
+        }
       }
 
       // Convert standard Gemini contents to Interactions API input
@@ -553,7 +564,7 @@ Please wait a brief moment and try again. If you are developing locally, please 
 
       const runInteraction = async (modelName: string) => {
         // Map common camelCase config to snake_case for Interactions API
-        const generation_config: any = config ? { ...config } : {};
+        const generation_config: any = generationConfig ? { ...generationConfig } : {};
         
         if (modelName === "gemini-3.1-pro-preview") {
           generation_config.thinkingConfig = {
@@ -708,8 +719,145 @@ Please wait a brief moment and try again. If you are developing locally, please 
     }
   });
 
+  app.get("/api/images/search", async (req, res) => {
+    const { q } = req.query;
+    if (!q) {
+      return res.status(400).json({ error: "Query parameter 'q' is required" });
+    }
+
+    const query = String(q);
+    const braveApiKey = process.env.BRAVE_SEARCH_API_KEY;
+
+    // 1. Try Brave Search API if configured
+    if (braveApiKey) {
+      try {
+        console.log(`[Image Search] Querying Brave Search for: "${query}"...`);
+        const response = await fetch(
+          `https://api.search.brave.com/res/v1/images/search?q=${encodeURIComponent(query)}&count=20`,
+          {
+            headers: {
+              "Accept": "application/json",
+              "X-Subscription-Token": braveApiKey
+            }
+          }
+        );
+
+        if (response.ok) {
+          const data: any = await response.json();
+          const results = data.results || [];
+          const images = results.map((item: any) => ({
+            url: item.properties?.url || item.thumbnail?.src || item.url,
+            thumbnail: item.thumbnail?.src || item.properties?.placeholder || item.properties?.url,
+            title: item.title || "Image",
+            source: item.source || new URL(item.url || "https://example.com").hostname
+          })).filter((img: any) => img.url);
+
+          return res.json({ images });
+        } else {
+          console.error(`Brave Image Search returned HTTP ${response.status}. Falling back to DuckDuckGo...`);
+        }
+      } catch (err) {
+        console.error("Brave Image Search failed. Falling back to DuckDuckGo:", err);
+      }
+    }
+
+    // 2. Fallback to DuckDuckGo Image Search
+    try {
+      console.log(`[Image Search] Querying DuckDuckGo Image Search for: "${query}"...`);
+      const ddgUrl = `https://duckduckgo.com/?q=${encodeURIComponent(query)}`;
+      const ddgResponse = await fetch(ddgUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+      });
+
+      if (!ddgResponse.ok) {
+        throw new Error(`DuckDuckGo main page fetch returned HTTP ${ddgResponse.status}`);
+      }
+
+      const html = await ddgResponse.text();
+      const vqdMatch = html.match(/vqd=([^&'"]+)/);
+      if (!vqdMatch) {
+        throw new Error("Failed to extract vqd token from DuckDuckGo");
+      }
+
+      const vqd = vqdMatch[1];
+      const imagesUrl = `https://duckduckgo.com/i.html?o=json&q=${encodeURIComponent(query)}&vqd=${vqd}&f=,,,`;
+      const imagesResponse = await fetch(imagesUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Referer": "https://duckduckgo.com/"
+        }
+      });
+
+      if (!imagesResponse.ok) {
+        throw new Error(`DuckDuckGo JSON search returned HTTP ${imagesResponse.status}`);
+      }
+
+      const data: any = await imagesResponse.json();
+      const results = data.results || [];
+      const images = results.map((item: any) => ({
+        url: item.image,
+        thumbnail: item.thumbnail,
+        title: item.title,
+        source: item.source || "Web"
+      }));
+
+      return res.json({ images });
+    } catch (err: any) {
+      console.error("DuckDuckGo Image Search failed:", err);
+      return res.status(500).json({ error: "Failed to search images", details: err.message });
+    }
+  });
+
+  app.post("/api/gemini/analyzeImage", async (req, res) => {
+    const { imageUrl, prompt } = req.body;
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res
+        .status(500)
+        .json({ error: "GEMINI_API_KEY is not configured on the server." });
+    }
+
+    if (!imageUrl) {
+      return res.status(400).json({ error: "imageUrl is required" });
+    }
+
+    try {
+      console.log(`[Analyze Image] Fetching image from url: ${imageUrl}`);
+      const response = await fetch(imageUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image. Status: ${response.status}`);
+      }
+
+      const contentType = response.headers.get("content-type") || "image/jpeg";
+      const buffer = await response.arrayBuffer();
+      const base64Data = Buffer.from(buffer).toString("base64");
+
+      const ai = new GoogleGenAI({ apiKey });
+      const interaction = await retryRequest(() => ai.interactions.create({
+        model: "gemini-3.5-flash",
+        input: [
+          { type: "image", data: base64Data, mime_type: contentType },
+          { type: "text", text: prompt || "Analyze this image and describe its key visual elements." }
+        ]
+      }));
+
+      res.json({ text: interaction.output_text });
+    } catch (error: any) {
+      console.error("Gemini AnalyzeImage Proxy Error:", error);
+      const { code, status, message } = parseGeminiError(error);
+      res.status(code).json({ error: message, status });
+    }
+  });
+
   app.post("/api/gemini/tts", async (req, res) => {
-    const { text, voiceName } = req.body;
+    const { text, voiceName, model } = req.body;
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return res
@@ -719,15 +867,22 @@ Please wait a brief moment and try again. If you are developing locally, please 
 
     try {
       const ai = new GoogleGenAI({ apiKey });
+      const targetModel = model || "gemini-3.1-flash-tts-preview";
+      
+      // If Tigrinya-optimized speaker 'selam' is selected, map it to the beautiful Kore voice
+      let targetVoice = (voiceName || "kore").toLowerCase();
+      if (targetVoice === "selam") {
+        targetVoice = "kore";
+      }
 
       const interaction = await retryRequest(() => ai.interactions.create({
-        model: "gemini-3.1-flash-tts-preview",
+        model: targetModel,
         input: text,
         response_modalities: ["audio"],
         generation_config: {
           speech_config: [
             {
-              voice: (voiceName || "kore").toLowerCase()
+              voice: targetVoice
             }
           ]
         },
@@ -1124,7 +1279,7 @@ Please wait a brief moment and try again. If you are developing locally, please 
 
         // 1. Initial configuration setup
         if (data.setup) {
-          const { systemInstruction, voiceName } = data.setup;
+          const { systemInstruction, voiceName, tools } = data.setup;
           const apiKey = process.env.GEMINI_API_KEY;
           if (!apiKey) {
             clientWs.send(
@@ -1138,10 +1293,10 @@ Please wait a brief moment and try again. If you are developing locally, please 
 
           const ai = new GoogleGenAI({ apiKey });
 
-          console.log("Connecting to Gemini Live with model: models/gemini-3.1-flash-live-preview");
+          console.log("Connecting to Gemini Live with model: gemini-3.1-flash-live-preview");
           try {
             sessionPromise = ai.live.connect({
-              model: "models/gemini-3.1-flash-live-preview",
+              model: "gemini-3.1-flash-live-preview",
               config: {
                 responseModalities: [Modality.AUDIO],
                 speechConfig: {
@@ -1150,7 +1305,7 @@ Please wait a brief moment and try again. If you are developing locally, please 
                   },
                 },
                 systemInstruction: (systemInstruction || "You are a helpful assistant.") + " You specializing in Ethiopic languages (Tigrinya, Amharic) and English.",
-                tools: [],
+                tools: tools || [{ googleSearch: {} }],
               },
               callbacks: {
                 onmessage: (message: LiveServerMessage) => {
@@ -1196,16 +1351,23 @@ Please wait a brief moment and try again. If you are developing locally, please 
                     }
                   }
 
-                  console.log("Gemini Live Session Closed by Google backend:", reason);
+                  const reasonStr = String(reason).toLowerCase();
+                  if (reasonStr.includes("quota") || reasonStr.includes("limit") || reasonStr.includes("exceeded") || reasonStr.includes("billing")) {
+                    console.log("Gemini Live Session Closed softly: Quota limit reached.");
+                  } else {
+                    console.log("Gemini Live Session Closed by Google backend:", reason);
+                  }
                   
                   // Format a friendly, human-readable error message if the session closed due to backend limits / GoAway timeouts
                   let friendlyError = "Session closed by Gemini backend";
                   let friendlyDetails = reason;
 
-                  const reasonStr = String(reason).toLowerCase();
                   if (reasonStr.includes("goaway") || reasonStr.includes("session durat") || reasonStr.includes("aborted")) {
                     friendlyError = "Live Session Completed";
                     friendlyDetails = "Your live session has reached its maximum duration limit. You can start a new session anytime!";
+                  } else if (reasonStr.includes("quota") || reasonStr.includes("limit") || reasonStr.includes("exceeded")) {
+                    friendlyError = "Service Limit Reached";
+                    friendlyDetails = "You have exceeded your current usage quota. Please check your plan or try again later.";
                   }
 
                   clientWs.send(JSON.stringify({ 
@@ -1216,11 +1378,17 @@ Please wait a brief moment and try again. If you are developing locally, please 
                 },
                 onerror: (err: any) => {
                   if (isClosed) return;
-                  console.error("Gemini Live Bridge Inner Error (callback):", err);
                   
                   let errMsg = "Internal Gemini Live error";
                   if (err) {
                     errMsg = err.message || JSON.stringify(err);
+                  }
+
+                  const errMsgLower = errMsg.toLowerCase();
+                  if (errMsgLower.includes("quota") || errMsgLower.includes("limit") || errMsgLower.includes("exceeded")) {
+                    console.warn("Gemini Live Bridge Inner Notice (Quota/Limit):", errMsg);
+                  } else {
+                    console.error("Gemini Live Bridge Inner Error (callback):", err);
                   }
 
                   clientWs.send(
@@ -1242,10 +1410,16 @@ Please wait a brief moment and try again. If you are developing locally, please 
 
           sessionPromise.catch((err: any) => {
             if (isClosed) return;
-            console.error("Gemini Live Connection Promise Rejected (Async):", err);
+            const errMsg = err ? (err.message || String(err)) : "Unknown";
+            const errMsgLower = errMsg.toLowerCase();
+            if (errMsgLower.includes("quota") || errMsgLower.includes("limit") || errMsgLower.includes("exceeded")) {
+              console.warn("Gemini Live Connection Promise Soft Notice (Quota/Limit):", errMsg);
+            } else {
+              console.error("Gemini Live Connection Promise Rejected (Async):", err);
+            }
             clientWs.send(
               JSON.stringify({
-                error: "Connection failed: " + (err.message || "Unknown error"),
+                error: "Connection failed: " + errMsg,
               }),
             );
             setTimeout(() => {
